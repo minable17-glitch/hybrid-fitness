@@ -1,9 +1,9 @@
 // 설계도·채점 규칙 (순수 함수). 서버(schema.sql)의 design_errors / design_convert / perf_convert 와 같은 규칙.
-import { MOVE_COUNT, WEAK_MOVES, RUN_WHERE, REP_SEC, DEFAULT_RUN_PACE, QUESTION_COUNT, AREAS, MEASURES, MIN_REASON } from './content';
+import { MOVE_COUNT, MOVE_AREAS, RUN_WHERE, REP_SEC, DEFAULT_RUN_PACE, QUESTION_COUNT, AREAS, MEASURES, MIN_REASON } from './content';
 
 export function emptyDesign() {
   return {
-    moves: Array.from({ length: MOVE_COUNT }, () => ({ name: '', muscle: '', form: '', daily: '', order: '', mode: '회', val: '' })),
+    moves: Array.from({ length: MOVE_COUNT }, () => ({ name: '', area: '', muscle: '', posture: '', safety: '', daily: '', order: '', mode: '회', val: '' })),
     restMove: '', restRound: '', rounds: '', runDist: '', runWhere: '',
   };
 }
@@ -13,11 +13,21 @@ export function normalizeDesign(data) {
   const base = emptyDesign();
   if (!data || typeof data !== 'object') return base;
   base.moves = base.moves.map((m, i) => ({ ...m, ...(data.moves?.[i] || {}) }));
+  // 예전 형식(자세·안전을 한 칸 'form'에)으로 저장된 설계도는 '정확한 자세' 칸으로 옮김
+  base.moves.forEach((m) => { if (m.form && !m.posture) m.posture = m.form; delete m.form; });
   for (const k of ['restMove', 'restRound', 'rounds', 'runDist', 'runWhere']) if (data[k] != null) base[k] = data[k];
   return base;
 }
 
-export const moveLabel = (i) => (i < WEAK_MOVES ? `약점 동작 ${i + 1}` : `그 외 동작 ${i - WEAK_MOVES + 1}`);
+export const moveLabel = (i) => `동작 ${i + 1}`;
+
+/** 약점 부위와 같은 동작이 몇 칸인지 (설계도 상단·채점 ① 에 표시) */
+export function weakShare(g, weakAreas) {
+  const counts = Object.fromEntries(MOVE_AREAS.map((a) => [a.key, 0]));
+  g.moves.forEach((m) => { if (m.area in counts) counts[m.area] += 1; });
+  const hit = g.moves.filter((m) => m.area && weakAreas.includes(m.area)).length;
+  return { counts, hit, total: g.moves.length };
+}
 const blank = (v) => String(v ?? '').trim() === '';
 const num = (v) => (v === '' || v == null ? NaN : Number(v));
 
@@ -26,8 +36,10 @@ export function designErrors(g) {
   g.moves.forEach((m, i) => {
     const lb = moveLabel(i);
     if (blank(m.name)) e.push(`${lb} 동작명`);
+    if (!MOVE_AREAS.some((a) => a.key === m.area)) e.push(`${lb} 부위`);
     if (blank(m.muscle)) e.push(`${lb} 사용 근육`);
-    if (blank(m.form)) e.push(`${lb} 자세·안전`);
+    if (blank(m.posture)) e.push(`${lb} 정확한 자세`);
+    if (blank(m.safety)) e.push(`${lb} 안전 유의사항`);
     if (blank(m.daily)) e.push(`${lb} 일상 활용`);
     if (!(num(m.val) > 0)) e.push(`${lb} 횟수/시간`);
     if (!(num(m.order) >= 1)) e.push(`${lb} 순서`);
@@ -57,7 +69,8 @@ export function estimate(g, runSec) {
 export function designConvert(sum, isBlank) {
   if (isBlank) return 2;
   if (sum == null || sum === '') return null;
-  return sum >= 13 ? 14 : sum >= 11 ? 12 : sum >= 9 ? 10 : sum >= 7 ? 8 : sum >= 5 ? 6 : 4;
+  // 5항목 합계(0~10): 9~10→14, 8→12, 7→10, 5~6→8, 3~4→6, 0~2(제출)→4
+  return sum >= 9 ? 14 : sum >= 8 ? 12 : sum >= 7 ? 10 : sum >= 5 ? 8 : sum >= 3 ? 6 : 4;
 }
 export function perfConvert(p1, p2) {
   const v = [p1, p2].map((x) => String(x ?? ''));

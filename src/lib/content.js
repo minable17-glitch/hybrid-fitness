@@ -42,20 +42,29 @@ export const MEASURES = [
 ];
 export const RUN = { key: 'run1km', name: '1km 달리기', area: 'cardio' };
 
-export const MOVE_COUNT = 5;   // 약점 3 + 그 외 2 (고정)
-export const WEAK_MOVES = 3;
+export const MOVE_COUNT = 5;   // 동작 5칸 고정, 칸마다 부위를 고름
+// 설계도 동작 부위 (심폐는 러닝 구간으로 채우므로 동작 부위에는 없음). key는 AREAS 와 같음
+export const MOVE_AREAS = [
+  { key: 'push', name: '상체 밀기' },
+  { key: 'pull', name: '상체 당기기' },
+  { key: 'core', name: '코어' },
+  { key: 'legEnd', name: '하체 지구력' },
+  { key: 'legPow', name: '하체 순발력' },
+];
+export const moveAreaName = (key) => MOVE_AREAS.find((a) => a.key === key)?.name || '';
 export const RUN_WHERE = ['시작 전', '라운드마다', '마지막'];
 export const REP_SEC = 3;            // 횟수 → 시간: 1회 약 3초
 export const DEFAULT_RUN_PACE = 0.42; // 1km 기록이 없을 때 1m당 초 (1km 7분)
 export const WARN_MIN = 15;
 export const MIN_REASON = 10;
 
+// 설계 5항목 × 2점 = 10점 → 설계 환산 14점 (schema.sql design_convert 와 같은 표)
 export const SCORE_ITEMS = [
-  { label: '① 약점 근거 파악', short: '①', max: 2 },
-  { label: '② 약점 보완 동작 선정', short: '②', max: 4 },
-  { label: '③ 근육 부위', short: '③', max: 2 },
-  { label: '④ 정확한 자세·안전', short: '④', max: 2 },
-  { label: '⑤ 일상 활용', short: '⑤', max: 2 },
-  { label: '⑥ 프로그램 구성', short: '⑥', max: 2 },
+  { label: '① 약점 진단과 보완', short: '①', max: 2 },
+  { label: '② 근육 부위', short: '②', max: 2 },
+  { label: '③ 정확한 자세·안전', short: '③', max: 2 },
+  { label: '④ 일상 활용', short: '④', max: 2 },
+  { label: '⑤ 프로그램 구성', short: '⑤', max: 2 },
 ];
+export const SCORE_MAX = SCORE_ITEMS.reduce((t, s) => t + s.max, 0);
 export const PERF_OPTIONS = ['', '2', '1', '0', '미참여'];

@@ -83,7 +83,7 @@ create table if not exists weaknesses (
 
 create table if not exists designs (
   student_no text primary key references roster(student_no) on delete cascade on update cascade,
-  data jsonb not null default '{}',     -- {moves:[5개], restMove, restRound, rounds, runDist, runWhere}
+  data jsonb not null default '{}',     -- {moves:[5개 {name, area, muscle, posture, safety, daily, order, mode, val}], restMove, restRound, rounds, runDist, runWhere}
   est_min numeric,
   status text not null default '작성 중' check (status in ('작성 중', '제출')),
   submitted_at timestamptz,
@@ -117,13 +117,16 @@ create table if not exists moves (
 
 create table if not exists scores (
   student_no text primary key references roster(student_no) on delete cascade on update cascade,
-  items int[] not null default array[null, null, null, null, null, null]::int[],  -- 설계 ①~⑥
+  items int[] not null default array[null, null, null, null, null]::int[],  -- 설계 ①~⑤ (각 0~2)
   blank boolean not null default false,  -- 미참여·백지
   design_sum int, design_score int,
   perf1 text not null default '', perf2 text not null default '',  -- '2','1','0','미참여',''
   perf_score int, total int,
   updated_at timestamptz not null default now()
 );
+
+-- 설계 채점이 6항목 → 5항목(각 2점)으로 바뀜 (예전 스키마로 만든 DB도 맞춤)
+alter table scores alter column items set default array[null, null, null, null, null]::int[];
 
 alter table teachers enable row level security;
 alter table teacher_sessions enable row level security;
@@ -193,10 +196,12 @@ declare
 begin
   for i in 0..4 loop
     m := coalesce(d -> 'moves' -> i, '{}'::jsonb);
-    lb := case when i < 3 then '약점 동작 ' || (i + 1) else '그 외 동작 ' || (i - 2) end;
+    lb := '동작 ' || (i + 1);
     if coalesce(trim(m ->> 'name'), '') = '' then e := e || (lb || ' 동작명'); end if;
+    if coalesce(m ->> 'area', '') not in ('push', 'pull', 'core', 'legEnd', 'legPow') then e := e || (lb || ' 부위'); end if;
     if coalesce(trim(m ->> 'muscle'), '') = '' then e := e || (lb || ' 사용 근육'); end if;
-    if coalesce(trim(m ->> 'form'), '') = '' then e := e || (lb || ' 자세·안전'); end if;
+    if coalesce(trim(m ->> 'posture'), '') = '' then e := e || (lb || ' 정확한 자세'); end if;
+    if coalesce(trim(m ->> 'safety'), '') = '' then e := e || (lb || ' 안전 유의사항'); end if;
     if coalesce(trim(m ->> 'daily'), '') = '' then e := e || (lb || ' 일상 활용'); end if;
     if coalesce(try_num(m ->> 'val'), 0) <= 0 then e := e || (lb || ' 횟수/시간'); end if;
     o := try_num(m ->> 'order');
@@ -214,14 +219,14 @@ begin
 end;
 $$;
 
--- 설계 환산: 13~14→14, 11~12→12, 9~10→10, 7~8→8, 5~6→6, 0~4→4, 미참여·백지→2
+-- 설계 환산 (5항목 합계 0~10): 9~10→14, 8→12, 7→10, 5~6→8, 3~4→6, 0~2(제출)→4, 미참여·백지→2
 create or replace function design_convert(p_sum int, p_blank boolean) returns int
 language sql immutable as $$
   select case
     when p_blank then 2
     when p_sum is null then null
-    when p_sum >= 13 then 14 when p_sum >= 11 then 12 when p_sum >= 9 then 10
-    when p_sum >= 7 then 8 when p_sum >= 5 then 6 else 4 end
+    when p_sum >= 9 then 14 when p_sum >= 8 then 12 when p_sum >= 7 then 10
+    when p_sum >= 5 then 8 when p_sum >= 3 then 6 else 4 end
 $$;
 
 -- 수행 환산: 2회 합계 4→6, 3→5, 2→4, 1→3, 미참여(또는 0)→2, 둘 다 빈칸→null
@@ -270,7 +275,7 @@ create or replace function recompute_score(p_student_no text) returns void
 language plpgsql security definer set search_path = public as $$
 begin
   update scores set
-    design_sum = case when array_position(items, null) is null and cardinality(items) = 6
+    design_sum = case when array_position(items, null) is null and cardinality(items) = 5
                       then (select sum(x) from unnest(items) x) end,
     updated_at = now()
   where student_no = p_student_no;
@@ -631,14 +636,14 @@ grant execute on function admin_student_detail(text) to anon, authenticated;
 create or replace function admin_save_score(p_student_no text, p_items int[], p_blank boolean) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
-  maxes int[] := array[2, 4, 2, 2, 2, 2];
+  maxes int[] := array[2, 2, 2, 2, 2];
   v int[] := '{}';
   i int;
   x int;
 begin
   perform assert_teacher();
   if not exists (select 1 from roster where student_no = p_student_no) then raise exception '명렬표에 없는 학번이에요'; end if;
-  for i in 1..6 loop
+  for i in 1..5 loop
     x := p_items[i];
     v := v || case when x is null then null else greatest(0, least(maxes[i], x)) end;
   end loop;

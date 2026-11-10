@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { MOVE_COUNT, WEAK_MOVES, RUN_WHERE, REP_SEC, WARN_MIN, areaName } from '../lib/content';
-import { designErrors, estimate, moveLabel, fmtSec, fmtTime } from '../lib/design';
+import { MOVE_COUNT, MOVE_AREAS, RUN_WHERE, REP_SEC, WARN_MIN, areaName, moveAreaName } from '../lib/content';
+import { designErrors, estimate, moveLabel, weakShare, fmtSec, fmtTime } from '../lib/design';
 import { appendLog } from '../lib/offlineQueue';
 import { Modal } from './ui';
 
@@ -107,6 +107,7 @@ export default function DesignStep({ studentNo, design, weak, runSec, settings, 
   );
 
   const e = estimate(g, runSec);
+  const share = weakShare(g, weak.areas);
   const over = e.total > WARN_MIN * 60;
   const ordered = g.moves.map((m, i) => ({ m, i })).filter((x) => Number(x.m.order) >= 1).sort((a, b) => a.m.order - b.m.order);
   const dup = new Set(ordered.map((x) => x.m.order)).size !== ordered.length;
@@ -150,25 +151,50 @@ export default function DesignStep({ studentNo, design, weak, runSec, settings, 
 
   return (
     <div ref={boxRef}>
-      <div className="pin"><b>내가 고른 약점:</b> {weak.areas.map(areaName).join(', ') || '-'}<br /><b>이유:</b> {weak.reason}</div>
+      <div className="pin"><b>내가 고른 약점:</b> {weak.areas.map(areaName).join(', ') || '-'} · 약점 부위 동작 <b>{share.hit}/{share.total}칸</b><br /><b>이유:</b> {weak.reason}</div>
       {submitted && <div className="msg msg-ok">제출 완료 ({fmtTime(design.submittedAt)}). 고치려면 선생님께 잠금 해제를 요청하세요.</div>}
       {!submitted && !settings.designOpen && <div className="msg msg-warn">지금은 설계도 작성 시간이 아니에요. 선생님이 열어 주면 작성할 수 있어요. (보는 것은 가능)</div>}
       <div className="card">
         <h2>하이브리드 체력 프로그램 설계도</h2>
-        <p className="muted" style={{ margin: 0 }}>약점 보완 동작 3개와 그 외 동작 2개를 직접 적어요. 이 화면은 붙여넣기가 안 되고, 나갔다 오면 기록돼요.</p>
+        <p className="muted" style={{ margin: 0 }}>동작 5개를 직접 적고, 동작마다 부위를 골라요. 내 약점 부위와 같은 동작은 색이 칠해져요. 이 화면은 붙여넣기가 안 되고, 나갔다 오면 기록돼요.</p>
+      </div>
+
+      <div className="card share" id="share">
+        <div className="row between">
+          <b>약점 부위 동작 비중</b>
+          <span className={`big ${share.hit ? 'hit' : ''}`}>{share.hit}<span className="muted"> / {share.total}칸</span></span>
+        </div>
+        <div className="share-bar" aria-hidden="true">
+          {g.moves.map((m, i) => <i key={i} className={!m.area ? 'empty' : weak.areas.includes(m.area) ? 'hit' : 'fill'} />)}
+        </div>
+        <div className="chips" style={{ marginTop: 8 }}>
+          {MOVE_AREAS.map((a) => (
+            <span key={a.key} className={`chip static ${weak.areas.includes(a.key) ? 'on' : ''}`}>{a.name} {share.counts[a.key]}</span>
+          ))}
+        </div>
+        {weak.areas.includes('cardio') && <p className="muted" style={{ marginBottom: 0 }}>심폐는 동작 부위에 없어요. 러닝 구간(거리·위치)으로 보완해요.</p>}
       </div>
 
       {g.moves.slice(0, MOVE_COUNT).map((m, i) => {
-        const weakMove = i < WEAK_MOVES;
+        const hit = m.area && weak.areas.includes(m.area);
         const lb = moveLabel(i);
         return (
-          <div className={`card move ${weakMove ? '' : 'other'}`} key={i}>
-            <h3><span className={`tag ${weakMove ? '' : 'other'}`}>{weakMove ? '약점 보완' : '그 외'}</span>{lb}</h3>
+          <div className={`card move ${hit ? 'hit' : m.area ? '' : 'other'}`} key={i} data-move={i}>
+            <h3>{hit && <span className="tag hit">약점 보완</span>}{lb}{m.area ? ` · ${moveAreaName(m.area)}` : ''}</h3>
             <div className="grid2">
               <div className="field"><label>동작명</label>{text(`moves.${i}.name`, `${lb} 동작명`, m.name)}</div>
-              <div className="field"><label>사용 근육</label>{text(`moves.${i}.muscle`, `${lb} 사용 근육`, m.muscle)}</div>
+              <div className="field"><label>부위</label>
+                <select value={m.area || ''} disabled={!editable} data-d={`moves.${i}.area`} onChange={(ev) => set(`moves.${i}.area`, ev.target.value)}>
+                  <option value="">선택</option>
+                  {MOVE_AREAS.map((a) => <option key={a.key} value={a.key}>{a.name}{weak.areas.includes(a.key) ? ' (내 약점)' : ''}</option>)}
+                </select>
+              </div>
             </div>
-            <div className="field"><label>정확한 자세 · 안전 유의사항</label>{text(`moves.${i}.form`, `${lb} 자세·안전`, m.form, true)}</div>
+            <div className="field"><label>사용 근육</label>{text(`moves.${i}.muscle`, `${lb} 사용 근육`, m.muscle)}</div>
+            <div className="grid2">
+              <div className="field"><label>정확한 자세</label>{text(`moves.${i}.posture`, `${lb} 정확한 자세`, m.posture, true)}</div>
+              <div className="field"><label>안전 유의사항</label>{text(`moves.${i}.safety`, `${lb} 안전 유의사항`, m.safety, true)}</div>
+            </div>
             <div className="field"><label>일상 활용</label>{text(`moves.${i}.daily`, `${lb} 일상 활용`, m.daily, true)}</div>
             <div className="grid2">
               <div className="field"><label>순서</label>

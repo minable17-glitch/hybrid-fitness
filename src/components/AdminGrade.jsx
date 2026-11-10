@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { adminStudentDetail, adminSaveScore, adminUnlockDesign } from '../lib/api';
-import { MEASURES, SCORE_ITEMS, WEAK_MOVES, WARN_MIN, QUESTION_COUNT, areaName } from '../lib/content';
-import { normalizeDesign, estimate, moveLabel, designConvert, diagSums, clsLabel, fmtSec, fmtNum, fmtTime } from '../lib/design';
+import { MEASURES, SCORE_ITEMS, SCORE_MAX, MOVE_AREAS, WARN_MIN, QUESTION_COUNT, areaName, moveAreaName } from '../lib/content';
+import { normalizeDesign, estimate, moveLabel, weakShare, designConvert, diagSums, clsLabel, fmtSec, fmtNum, fmtTime } from '../lib/design';
 import { LogTable } from './AdminTables';
 import { Modal } from './ui';
 
@@ -12,7 +12,7 @@ function levelOf(v, max) {
 
 function ScorePanel({ detail, onSaved, showToast }) {
   const sc = detail.score || {};
-  const [items, setItems] = useState(() => (sc.items || [null, null, null, null, null, null]).map((v) => (v == null ? null : Number(v))));
+  const [items, setItems] = useState(() => (sc.items || SCORE_ITEMS.map(() => null)).slice(0, SCORE_ITEMS.length).map((v) => (v == null ? null : Number(v))));
   const [blank, setBlank] = useState(!!sc.blank);
   const [savedAt, setSavedAt] = useState(sc.updated_at || null);
   const all = items.every((v) => v != null);
@@ -51,7 +51,7 @@ function ScorePanel({ detail, onSaved, showToast }) {
         <input type="checkbox" checked={blank} onChange={(e) => { setBlank(e.target.checked); void save(items, e.target.checked); }} /> 미참여·백지 (설계 2점)
       </label>
       <div className="row between" style={{ marginTop: 8 }}>
-        <div>합계 <span className="big" id="ssum">{all ? sum : `${items.filter((v) => v != null).length}/6`}</span>{all && <span className="muted">/14</span>}</div>
+        <div>합계 <span className="big" id="ssum">{all ? sum : `${items.filter((v) => v != null).length}/${SCORE_ITEMS.length}`}</span>{all && <span className="muted">/{SCORE_MAX}</span>}</div>
         <div>설계 점수 <span className="big" id="sconv" style={{ color: 'var(--primary)' }}>{conv ?? '-'}</span></div>
       </div>
       <p className="muted" id="ssaved">{savedAt === 'saving' ? '저장 중…' : savedAt ? `저장됨 ${fmtTime(savedAt)}` : '아직 저장 안 됨'}</p>
@@ -68,6 +68,8 @@ function Detail({ d, onUnlock }) {
   const answers = Array.from({ length: QUESTION_COUNT }, (_, i) => Number(d.diag?.answers?.[i]) || 0);
   const vals = d.measure?.vals || {};
   const e = estimate(g, d.student.runSec);
+  const weakAreas = d.weak?.areas || [];
+  const share = weakShare(g, weakAreas);
   const row = (name, v, key, unit, isRun) => (
     <tr key={key}><td>{name}</td>
       <td className="c">{isRun ? fmtSec(v) : v === '' || v == null ? '-' : `${v}${unit}`}</td>
@@ -93,23 +95,28 @@ function Detail({ d, onUnlock }) {
         </div>
       </div>
       <div className="card">
-        <h3>① 약점과 이유</h3>
-        <p><b>{(d.weak?.areas || []).map(areaName).join(', ') || '-'}</b></p>
+        <h3>① 약점 진단과 보완</h3>
+        <p><b>{weakAreas.map(areaName).join(', ') || '-'}</b> · 약점 부위 동작 <b>{share.hit}/{share.total}칸</b>
+          <span className="muted"> ({MOVE_AREAS.map((a) => `${a.name} ${share.counts[a.key]}`).join(', ')})</span></p>
         <div className="ro">{d.weak?.reason || ''}</div>
       </div>
-      {g.moves.map((m, i) => (
-        <div className={`card move ${i < WEAK_MOVES ? '' : 'other'}`} key={i}>
-          <h3><span className={`tag ${i < WEAK_MOVES ? '' : 'other'}`}>{i < WEAK_MOVES ? '② 약점 보완' : '그 외'}</span>{moveLabel(i)} · {m.name || '-'}
-            <span className="muted"> ({m.order ? `${m.order}번째` : '순서 -'}, {Number(m.val) > 0 ? `${m.val}${m.mode}` : '-'})</span></h3>
-          <div className="grid3">
-            <div><div className="muted">③ 사용 근육</div><div className="ro">{m.muscle}</div></div>
-            <div><div className="muted">④ 자세·안전</div><div className="ro">{m.form}</div></div>
-            <div><div className="muted">⑤ 일상 활용</div><div className="ro">{m.daily}</div></div>
+      {g.moves.map((m, i) => {
+        const hit = m.area && weakAreas.includes(m.area);
+        return (
+          <div className={`card move ${hit ? 'hit' : m.area ? '' : 'other'}`} key={i}>
+            <h3>{hit && <span className="tag hit">약점 보완</span>}{moveLabel(i)} · {m.name || '-'} <span className="muted">[{moveAreaName(m.area) || '부위 -'}]</span>
+              <span className="muted"> ({m.order ? `${m.order}번째` : '순서 -'}, {Number(m.val) > 0 ? `${m.val}${m.mode}` : '-'})</span></h3>
+            <div className="grid2">
+              <div><div className="muted">② 사용 근육</div><div className="ro">{m.muscle}</div></div>
+              <div><div className="muted">④ 일상 활용</div><div className="ro">{m.daily}</div></div>
+              <div><div className="muted">③ 정확한 자세</div><div className="ro">{m.posture}</div></div>
+              <div><div className="muted">③ 안전 유의사항</div><div className="ro">{m.safety}</div></div>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
       <div className="card">
-        <h3>⑥ 프로그램 구성</h3>
+        <h3>⑤ 프로그램 구성</h3>
         <p>동작 사이 휴식 <b>{g.restMove === '' ? '-' : `${g.restMove}초`}</b> · 라운드 사이 휴식 <b>{g.restRound === '' ? '-' : `${g.restRound}초`}</b> · 라운드 <b>{g.rounds || '-'}</b> · 러닝 <b>{g.runDist ? `${g.runDist}m` : '-'}</b> ({g.runWhere || '-'})</p>
         <p>예상 소요시간 <b className={e.total > WARN_MIN * 60 ? 'est over' : ''}>{fmtSec(e.total)}</b></p>
       </div>

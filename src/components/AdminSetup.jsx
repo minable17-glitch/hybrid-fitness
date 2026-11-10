@@ -89,7 +89,7 @@ function parseRoster(table) {
 async function exportScores(students) {
   const XLSX = await import('xlsx');
   const wb = XLSX.utils.book_new();
-  const head = ['반', '번호', '학번', '이름', ...SCORE_ITEMS.map((s) => s.label), '설계합계', '설계점수(14)', '수행1', '수행2', '수행점수(6)', '합계(20)', '설계도 상태'];
+  const head = ['반', '번호', '학번', '이름', ...SCORE_ITEMS.map((s) => s.label), '설계합계(10)', '설계점수(14)', '수행1', '수행2', '수행점수(6)', '합계(20)', '설계도 상태'];
   const classes = [...new Set(students.map((s) => s.className))].sort((a, b) => String(a).localeCompare(String(b), 'ko', { numeric: true }));
   for (const c of classes) {
     const rows = students.filter((s) => s.className === c).sort((a, b) => (a.number ?? 0) - (b.number ?? 0)).map((s) => {
@@ -98,7 +98,7 @@ async function exportScores(students) {
       const design = sc.design_score ?? (s.designStatus !== '제출' ? 2 : '');
       const perf = sc.perf_score ?? '';
       const total = design !== '' && perf !== '' ? design + perf : '';
-      return [s.className, s.number, s.studentNo, s.name, ...(sc.items || [null, null, null, null, null, null]).map((v) => v ?? ''),
+      return [s.className, s.number, s.studentNo, s.name, ...(sc.items || SCORE_ITEMS.map(() => null)).slice(0, SCORE_ITEMS.length).map((v) => v ?? ''),
         sc.design_sum ?? '', design, sc.perf1 || '', sc.perf2 || '', perf, total, s.designStatus || '미작성'];
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([head, ...rows]), clsLabel(c).slice(0, 31));

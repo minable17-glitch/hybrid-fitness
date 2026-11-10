@@ -211,3 +211,14 @@ tr.click:hover td { background: #f6faf8; }
 .big { font-size: 26px; font-weight: 800; }
 .switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border-color); }
 .switch:first-of-type { border-top: 0; }
+
+/* 설계도: 약점 부위 동작 비중 (PRD: 약점 부위와 같은 동작은 색이 칠해져 비중이 한눈에) */
+.move.hit { border-left-color: var(--accent); background: linear-gradient(90deg, var(--accent-soft), var(--surface) 40%); }
+.tag.hit { background: var(--accent); color: #fff; }
+.share-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 8px; }
+.share-bar i { height: 14px; border-radius: 6px; background: #e7ecea; }
+.share-bar i.fill { background: #9fb8ae; }
+.share-bar i.hit { background: var(--accent); }
+.big.hit { color: var(--accent); }
+.chip.static { cursor: default; font-size: 13px; padding: 5px 11px; }
+.chip.static.on { background: var(--accent); border-color: var(--accent); }
