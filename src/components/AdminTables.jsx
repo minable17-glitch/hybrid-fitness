@@ -22,12 +22,12 @@ export function AdminProgress({ students, ov, cls, openStudent }) {
         <div className="muted">진단 {st.diagOpen ? <b className="y">열림</b> : '닫힘'} · 설계 {st.designOpen ? <b className="y">열림</b> : '닫힘'}</div>
       </div>
       <div className="tbl-wrap"><table>
-        <thead><tr><th>번호</th><th>이름</th><th className="c">자가진단</th><th className="c">측정</th><th className="c">목표 부위</th><th>설계도</th><th className="c">예상(분)</th><th className="c">이탈</th><th className="c">의심 입력</th></tr></thead>
+        <thead><tr><th>번호</th><th>이름</th><th className="c">비밀번호</th><th className="c">자가진단</th><th className="c">측정</th><th className="c">목표 부위</th><th>설계도</th><th className="c">예상(분)</th><th className="c">이탈</th><th className="c">의심 입력</th></tr></thead>
         <tbody>
           {students.map((s) => (
             <tr key={s.studentNo} className="click" data-no={s.studentNo} onClick={() => openStudent(s.studentNo)}>
               <td>{s.number}</td><td><b>{s.name}</b></td>
-              <td className="c"><Yes v={s.diag} /></td><td className="c"><Yes v={s.measure} /></td><td className="c"><Yes v={s.weak} /></td>
+              <td className="c"><Yes v={s.hasPin} /></td><td className="c"><Yes v={s.diag} /></td><td className="c"><Yes v={s.measure} /></td><td className="c"><Yes v={s.weak} /></td>
               <td><DesignPill s={s} /></td><td className="c">{s.estMin ?? ''}</td>
               <td className="c">{s.leaves ? <span className="pill warn">{s.leaves}</span> : ''}</td>
               <td className="c">{s.sus ? <span className="pill warn">{s.sus}</span> : ''}</td>
@@ -35,7 +35,7 @@ export function AdminProgress({ students, ov, cls, openStudent }) {
           ))}
         </tbody>
       </table></div>
-      <p className="muted">행을 누르면 학생 상세·채점으로 이동해요.</p>
+      <p className="muted">행을 누르면 학생 상세·채점으로 이동해요. 비밀번호 ✓ = 학생이 첫 로그인에서 비밀번호를 만든 상태 (잊으면 상세에서 초기화).</p>
     </>
   );
 }

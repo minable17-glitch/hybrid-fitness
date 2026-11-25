@@ -9,7 +9,7 @@ export function Modal({ title, children, buttons, onClose, wide }) {
         <div>{children}</div>
         <div className="row end" style={{ marginTop: 16 }}>
           {(buttons || [{ label: '확인', onClick: onClose }]).map((b) => (
-            <button key={b.label} type="button" className={`btn ${b.cls || 'btn-primary'}`} onClick={b.onClick} disabled={b.disabled}>{b.label}</button>
+            <button key={b.label} id={b.id} type="button" className={`btn ${b.cls || 'btn-primary'}`} onClick={b.onClick} disabled={b.disabled}>{b.label}</button>
           ))}
         </div>
       </div>

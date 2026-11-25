@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { adminStudentDetail, adminSaveScore, adminUnlockDesign } from '../lib/api';
+import { adminStudentDetail, adminSaveScore, adminUnlockDesign, adminResetPin } from '../lib/api';
 import { MEASURES, SCORE_ITEMS, SCORE_MAX, MOVE_AREAS, WARN_MIN, QUESTION_COUNT, areaName, moveAreaName } from '../lib/content';
 import { normalizeDesign, estimate, moveLabel, weakShare, designConvert, diagSums, clsLabel, fmtSec, fmtNum, fmtTime } from '../lib/design';
 import { timeline, timelineSummary } from '../lib/program';
@@ -71,7 +71,7 @@ function ScorePanel({ detail, onSaved, showToast }) {
   );
 }
 
-function Detail({ d, onUnlock, onPreview }) {
+function Detail({ d, onUnlock, onPreview, onResetPin }) {
   const g = normalizeDesign(d.design?.data);
   const avg = d.averages || {};
   const answers = Array.from({ length: QUESTION_COUNT }, (_, i) => Number(d.diag?.answers?.[i]) || 0);
@@ -89,7 +89,11 @@ function Detail({ d, onUnlock, onPreview }) {
     <>
       <div className="card">
         <h2>{clsLabel(d.student.className)} {d.student.number}번 {d.student.name} <span className="muted">{d.student.studentNo}{d.student.sex ? ` · ${d.student.sex}` : ''}</span></h2>
-        <div style={{ marginBottom: 8 }}><button className="btn btn-accent btn-sm" type="button" id="preview" onClick={onPreview}>학생 화면 미리보기</button></div>
+        <div className="row" style={{ marginBottom: 8 }}>
+          <button className="btn btn-accent btn-sm" type="button" id="preview" onClick={onPreview}>학생 화면 미리보기</button>
+          <span className="muted">비밀번호: {d.student.hasPin ? (d.student.pinLocked ? <b className="n">5번 틀려 잠김</b> : '만듦') : '아직 없음 (첫 로그인 전)'}</span>
+          {d.student.hasPin && <button className="btn btn-outline btn-sm" type="button" id="resetPin" onClick={onResetPin}>비밀번호 초기화</button>}
+        </div>
         <div className="row">설계도:
           {d.design?.status === '제출'
             ? <><span className="pill sub">제출</span> {fmtTime(d.design.submittedAt)} <button className="btn btn-danger btn-sm" type="button" id="unlock" onClick={onUnlock}>잠금 해제</button></>
@@ -155,6 +159,7 @@ export default function AdminGrade({ students, current, setCurrent, patchStudent
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState('');
   const [confirmUnlock, setConfirmUnlock] = useState(false);
+  const [confirmPin, setConfirmPin] = useState(false);
   const [preview, setPreview] = useState(false);
   const [reload, setReload] = useState(0);
 
@@ -169,6 +174,16 @@ export default function AdminGrade({ students, current, setCurrent, patchStudent
 
   if (!students.length) return <div className="card muted">학생이 없어요.</div>;
   const idx = students.findIndex((s) => s.studentNo === no);
+
+  async function resetPin() {
+    setConfirmPin(false);
+    try {
+      await adminResetPin(no);
+      patchStudent(no, { hasPin: false });
+      setReload((r) => r + 1);
+      showToast('비밀번호를 초기화했어요. 학생이 다음 로그인 때 새로 만들어요');
+    } catch (e) { showToast(e.message); }
+  }
 
   async function unlock() {
     setConfirmUnlock(false);
@@ -197,13 +212,19 @@ export default function AdminGrade({ students, current, setCurrent, patchStudent
       {!detail && !error && <div className="card">불러오는 중…</div>}
       {detail && (
         <div className="split">
-          <div><Detail d={detail} onUnlock={() => setConfirmUnlock(true)} onPreview={() => setPreview(true)} /></div>
+          <div><Detail d={detail} onUnlock={() => setConfirmUnlock(true)} onPreview={() => setPreview(true)} onResetPin={() => setConfirmPin(true)} /></div>
           <div className="side">
             <ScorePanel key={no} detail={detail} showToast={showToast} onSaved={(score) => patchStudent(no, { score })} />
           </div>
         </div>
       )}
       {preview && detail && <StudentPreview detail={detail} onClose={() => setPreview(false)} />}
+      {confirmPin && (
+        <Modal title="비밀번호 초기화" onClose={() => setConfirmPin(false)}
+          buttons={[{ label: '취소', cls: 'btn-outline', onClick: () => setConfirmPin(false) }, { label: '초기화', cls: 'btn-danger', onClick: resetPin, id: 'resetPinOk' }]}>
+          <p>{detail?.student.name} 학생의 비밀번호를 지워요. 지금 로그인된 기기는 로그아웃되고, 다음 로그인 때 학번·이름을 넣으면 새 비밀번호를 만들게 돼요. 기록은 그대로예요.</p>
+        </Modal>
+      )}
       {confirmUnlock && (
         <Modal title="제출 잠금 해제" onClose={() => setConfirmUnlock(false)}
           buttons={[{ label: '취소', cls: 'btn-outline', onClick: () => setConfirmUnlock(false) }, { label: '잠금 해제', cls: 'btn-danger', onClick: unlock }]}>

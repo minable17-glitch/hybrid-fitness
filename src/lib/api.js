@@ -29,9 +29,10 @@ async function rpc(fn, args) {
 }
 
 /* ── 학생 ── */
-export async function studentLogin(studentNo, name) {
+// 돌려주는 값: {status:'ok', studentNo…} | {status:'setPin'} | {status:'pin'} | {status:'error', step, message}
+export async function studentLogin(studentNo, name, pin = null, newPin = false) {
   await ensureAnonSession();
-  return rpc('student_login', { p_student_no: studentNo, p_name: name });
+  return rpc('student_login', { p_student_no: studentNo, p_name: name, p_pin: pin, p_new_pin: newPin });
 }
 export async function studentLogout() {
   try { await rpc('student_logout'); } catch { /* 오프라인이어도 로그아웃은 진행 */ }
@@ -66,6 +67,7 @@ export const adminOverview = () => rpc('admin_overview');
 export const adminStudentDetail = (studentNo) => rpc('admin_student_detail', { p_student_no: studentNo });
 export const adminSaveScore = (studentNo, items, isBlank) => rpc('admin_save_score', { p_student_no: studentNo, p_items: items, p_blank: isBlank });
 export const adminSavePerf = (studentNo, p1, p2) => rpc('admin_save_perf', { p_student_no: studentNo, p_p1: p1, p_p2: p2 });
+export const adminResetPin = (studentNo) => rpc('admin_reset_pin', { p_student_no: studentNo });
 export const adminUnlockDesign = (studentNo) => rpc('admin_unlock_design', { p_student_no: studentNo });
 export const adminSaveSettings = (patch) => rpc('admin_save_settings', { p_patch: patch });
 export const adminImportRoster = (rows) => rpc('admin_import_roster', { p_rows: rows });
