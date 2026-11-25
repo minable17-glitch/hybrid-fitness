@@ -55,13 +55,14 @@ function useGuard({ active, studentNo }) {
 
 export default function DesignStep({ studentNo, design, weak, runSec, settings, onChange, onSubmit, onSaveNow, showToast, preview }) {
   const submitted = design.status === '제출';
-  const editable = !preview && !!settings.designOpen && !submitted;
+  // 미리보기(교사)는 열기/닫기와 상관없이 눌러 볼 수 있게 — 저장·기록은 하지 않음
+  const editable = (preview || !!settings.designOpen) && !submitted;
   const [introOk, setIntroOk] = useState(false);
   const [dialog, setDialog] = useState(null);
   const [busy, setBusy] = useState(false);
   const boxRef = useRef(null);
   const g = design.data;
-  useGuard({ active: editable && introOk, studentNo });
+  useGuard({ active: editable && introOk && !preview, studentNo });
 
   // 붙여넣기 차단 — React 합성 이벤트에는 beforeinput 의 inputType 이 없어 직접 등록
   useEffect(() => {
@@ -88,7 +89,7 @@ export default function DesignStep({ studentNo, design, weak, runSec, settings, 
     const next = structuredClone(g);
     const target = keys.reduce((o, k) => o[k], next);
     target[last] = NUM_FIELDS.includes(last) ? (value === '' ? '' : Number(value)) : value;
-    if (label && typeof value === 'string') {
+    if (label && typeof value === 'string' && !preview) {
       const delta = value.length - String(prev ?? '').length;
       if (delta >= (settings.suspiciousChars || 20)) appendLog({ type: 'paste', field: label, at: Date.now(), delta });
     }
@@ -260,7 +261,7 @@ export default function DesignStep({ studentNo, design, weak, runSec, settings, 
         </div>
       </div>
 
-      {!submitted && !preview && (
+      {!submitted && (
         <div className="row end">
           <button className="btn btn-outline" type="button" disabled={!editable} onClick={onSaveNow} id="dsave">임시저장</button>
           <button className="btn btn-primary" type="button" disabled={!editable || busy} onClick={askSubmit} id="dsubmit">{busy ? '제출 중…' : '최종 제출'}</button>
