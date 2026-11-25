@@ -3,6 +3,7 @@ import { AREAS, ANSWERS, MEASURES, RUN, MIN_REASON, TEXTBOOK_URL } from '../lib/
 import { diagSums, fmtSec, fmtNum } from '../lib/design';
 import { getSchoolAverages, getMyDistributions } from '../lib/api';
 import Distribution from './Distribution';
+import { RadarPair } from './Radar';
 import { papsGrade } from '../lib/paps';
 
 function Closed({ what }) {
@@ -120,6 +121,7 @@ export function ResultStep({ answers, vals, run, sex, weak, editable, submitted,
         <p className="muted" style={{ marginTop: 0 }}>왼쪽은 내가 느끼는 일상 속 어려움, 오른쪽은 내 측정 기록이 같은 성별 1학년 분포에서 어디쯤인지(상위 몇 %)예요. 주황 막대가 내 기록 구간, 점선이 평균이에요.</p>
         {err && <div className="msg msg-warn">{err}</div>}
         {!dist && !err && <p className="muted">기록 분포를 불러오는 중…</p>}
+        {dist && <RadarPair vals={vals} runSec={run?.sec} dist={dist} answers={answers} />}
         {sums.map((s) => {
           const lv = level(s.sum);
           const ms = measureFor(s.key);

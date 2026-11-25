@@ -4,6 +4,7 @@ import { MEASURES, SCORE_ITEMS, SCORE_MAX, MOVE_AREAS, WARN_MIN, QUESTION_COUNT,
 import { normalizeDesign, estimate, moveLabel, weakShare, designConvert, diagSums, clsLabel, fmtSec, fmtNum, fmtTime } from '../lib/design';
 import { LogTable } from './AdminTables';
 import Distribution from './Distribution';
+import { RadarPair } from './Radar';
 import { Modal } from './ui';
 
 function levelOf(v, max) {
@@ -97,6 +98,7 @@ function Detail({ d, onUnlock }) {
       </div>
       <div className="card" id="tdist">
         <h3>종목별 기록 분포 <span className="muted">(이름 없이 기록만 · 주황 막대가 이 학생)</span></h3>
+        <RadarPair vals={vals} runSec={d.student.runSec} dist={d.distributions} answers={answers} />
         <div className="grid2">
           {MEASURES.map((m) => (
             <Distribution key={m.key} measureKey={m.key} name={m.name} unit={m.unit} mine={vals[m.key]} dist={d.distributions?.[m.key]} avgInfo={avg[m.key]} sex={d.student.sex} />

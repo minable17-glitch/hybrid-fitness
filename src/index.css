@@ -237,3 +237,14 @@ tr.click:hover td { background: #f6faf8; }
 .dist-svg .avg { stroke: #5c6a65; stroke-width: 1.5; stroke-dasharray: 3 3; }
 .dist-svg .me-mark { fill: var(--accent); }
 .dist-foot { font-size: 12px; margin-top: 2px; }
+
+/* 방사형 그래프 */
+.radar { text-align: center; }
+.radar svg { width: 100%; max-width: 360px; height: auto; display: block; margin: 0 auto; }
+.r-grid { fill: none; stroke: #dfe6e3; stroke-width: 1; }
+.r-mid { fill: none; stroke: #7a8883; stroke-width: 1.2; stroke-dasharray: 4 4; }
+.r-axis { stroke: #dfe6e3; stroke-width: 1; }
+.r-shape { fill-opacity: 0.22; stroke-width: 2.5; stroke-linejoin: round; }
+.r-label { font-size: 13px; font-weight: 700; fill: var(--body-color); }
+.r-sub { font-size: 11px; font-weight: 600; fill: var(--body-muted); }
+.r-none { font-size: 11px; fill: #aab4b0; }
