@@ -259,12 +259,8 @@ tr.click:hover td { background: #f6faf8; }
 /* 움직임 교과서 (앱 안) */
 .tb-frame { border-radius: 14px; overflow: hidden; border: 1px solid var(--border-color); background: #14284b; }
 .tb-frame iframe, .tb-panel iframe { width: 100%; height: 100%; border: 0; display: block; }
-.tb-links { display: flex; flex-direction: column; gap: 6px; }
-.tb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.tb-row .chip, .tb-links .chip { padding: 5px 11px; font-size: 13px; }
 .tb-panel { position: fixed; inset: 0; z-index: 95; background: var(--bg); display: flex; flex-direction: column; }
 .tb-panel iframe { flex: 1; }
-.tb-panel-links { padding: 8px 12px; max-height: 26vh; overflow: auto; background: var(--surface); border-bottom: 1px solid var(--border-color); }
 
 /* 바로 해 보기 타이머 */
 .timer { position: fixed; inset: 0; z-index: 120; background: #0f1f1b; color: #fff; display: flex; flex-direction: column; }
@@ -299,3 +295,19 @@ ol.tl { margin: 6px 0 0; padding-left: 24px; max-height: 340px; overflow: auto; 
 ol.tl li { padding: 2px 0; }
 ol.tl li.tl-rest { color: var(--info); }
 ol.tl li.tl-run { color: #9a4210; font-weight: 700; }
+
+/* 교과서 바로가기: 두 줄, 넘치면 가로로 밀기 */
+.tb-links { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tb-bar { display: flex; align-items: center; gap: 6px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; padding-bottom: 1px; }
+.tb-bar::-webkit-scrollbar { display: none; }
+.tb-chip, .tb-area { flex: none; border: 1.5px solid var(--border-color); background: #fff; border-radius: 99px; padding: 5px 12px; font-size: 13px; font-weight: 700; cursor: pointer; color: var(--body-color); }
+.tb-chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.tb-area { border-color: transparent; background: var(--surface-alt); color: var(--body-muted); }
+.tb-area.on { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+.tb-area.weak { color: #9a4210; }
+.tb-area.weak.on { background: var(--accent-soft); border-color: var(--accent); }
+.tb-sep { flex: none; width: 1px; height: 20px; background: var(--border-color); margin: 0 2px; }
+.tb-hint { flex: none; font-size: 12px; font-weight: 700; }
+.tb-panel-links { padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border-color); }
+.preview-bar a.btn { text-decoration: none; }
+@media (max-width: 600px) { .tb-panel .preview-bar span { display: none; } .tb-panel .preview-bar b { flex: 1; } }

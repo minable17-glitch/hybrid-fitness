@@ -1,23 +1,28 @@
 import { useState } from 'react';
 import { AREAS, TEXTBOOK_LINKS, TEXTBOOK_SCENES, areaName } from '../lib/content';
 
-/** 교과서 바로가기 버튼들 (내 약점 부위 먼저) */
-export function TextbookShortcuts({ weakAreas = [], onOpen }) {
+/** 교과서 바로가기 — 두 줄: [처음 · 훈련 방식 · 부위 탭] / [고른 부위의 장면들]. 내 약점 부위가 먼저 */
+export function TextbookShortcuts({ weakAreas = [], onOpen, current }) {
   const order = [...weakAreas, ...AREAS.map((a) => a.key).filter((k) => !weakAreas.includes(k))];
+  const [area, setArea] = useState(order[0]);
+  const btn = (label, url, extra = {}) => (
+    <button key={label} type="button" className={`tb-chip ${current === url ? 'on' : ''}`} onClick={() => onOpen(url)} {...extra}>{label}</button>
+  );
   return (
     <div className="tb-links">
-      <div className="chips">
-        <button type="button" className="chip" onClick={() => onOpen(TEXTBOOK_LINKS.home)}>교과서 처음</button>
-        <button type="button" className="chip" onClick={() => onOpen(TEXTBOOK_LINKS.train)} data-tb="train">훈련 방식 배우기</button>
+      <div className="tb-bar">
+        {btn('교과서 처음', TEXTBOOK_LINKS.home)}
+        {btn('훈련 방식 배우기', TEXTBOOK_LINKS.train, { 'data-tb': 'train' })}
+        <span className="tb-sep" aria-hidden="true" />
+        {order.map((k) => (
+          <button key={k} type="button" className={`tb-area ${area === k ? 'on' : ''} ${weakAreas.includes(k) ? 'weak' : ''}`} onClick={() => setArea(k)}
+            aria-pressed={area === k}>{areaName(k)}{weakAreas.includes(k) ? ' ★' : ''}</button>
+        ))}
       </div>
-      {order.map((k) => (
-        <div key={k} className="tb-row">
-          <span className={`tag ${weakAreas.includes(k) ? 'hit' : 'other'}`}>{areaName(k)}{weakAreas.includes(k) ? ' · 내 약점' : ''}</span>
-          {(TEXTBOOK_SCENES[k] || []).map(([name, move, scene]) => (
-            <button key={name} type="button" className="chip" onClick={() => onOpen(TEXTBOOK_LINKS.scene(move, scene))}>{name}</button>
-          ))}
-        </div>
-      ))}
+      <div className="tb-bar">
+        <span className="muted tb-hint">{areaName(area)} 장면</span>
+        {(TEXTBOOK_SCENES[area] || []).map(([name, move, scene]) => btn(name, TEXTBOOK_LINKS.scene(move, scene)))}
+      </div>
     </div>
   );
 }
@@ -42,7 +47,7 @@ export function TextbookPanel({ weakAreas, onClose }) {
         <a className="btn btn-outline btn-sm" href={src} target="_blank" rel="noopener noreferrer" id="tbnew">새 창</a>
         <button className="btn btn-outline btn-sm" type="button" onClick={onClose} id="tbclose">닫기</button>
       </div>
-      <div className="tb-panel-links"><TextbookShortcuts weakAreas={weakAreas} onOpen={setSrc} /></div>
+      <div className="tb-panel-links"><TextbookShortcuts weakAreas={weakAreas} onOpen={setSrc} current={src} /></div>
       <iframe key={src} src={src} title="움직임 교과서" allow="fullscreen" allowFullScreen />
     </div>
   );

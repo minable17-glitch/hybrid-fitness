@@ -182,7 +182,7 @@ export function LibraryStep({ viewed, onViewed, next, weakAreas = [] }) {
           <a className="btn btn-outline btn-sm" href={src} target="_blank" rel="noopener noreferrer" id="textbook">새 창에서 열기 ↗</a>
         </div>
         <p className="muted">3D 움직임 교과서에서 동작의 사용 근육, 바른 자세, 안전, 일상 활용과 훈련 방식을 보고 배워요. 설계도에는 자동으로 들어가지 않으니, 이해한 내용을 내 말로 적어야 해요.</p>
-        <TextbookShortcuts weakAreas={weakAreas} onOpen={setSrc} />
+        <TextbookShortcuts weakAreas={weakAreas} onOpen={setSrc} current={src} />
       </div>
       <TextbookFrame key={src} src={src} />
       <div style={{ marginTop: 14 }}>{next}</div>
