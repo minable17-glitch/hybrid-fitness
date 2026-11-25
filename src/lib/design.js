@@ -1,10 +1,13 @@
 // 설계도·채점 규칙 (순수 함수). 서버(schema.sql)의 design_errors / design_convert / perf_convert 와 같은 규칙.
-import { MOVE_COUNT, MOVE_AREAS, RUN_WHERE, REP_SEC, DEFAULT_RUN_PACE, QUESTION_COUNT, AREAS, MIN_REASON } from './content';
+import { MOVE_COUNT, MOVE_AREAS, QUESTION_COUNT, AREAS, MIN_REASON } from './content';
+import { FORMATS, programErrors, programEstimate } from './program';
 
 export function emptyDesign() {
   return {
     moves: Array.from({ length: MOVE_COUNT }, () => ({ name: '', area: '', muscle: '', posture: '', safety: '', daily: '', order: '', mode: '회', val: '' })),
+    format: 'circuit',
     restMove: '', restRound: '', rounds: '', runDist: '', runWhere: '',
+    cap: '', min: '', every: '', work: '', rest: '', runM: '',
   };
 }
 
@@ -15,7 +18,8 @@ export function normalizeDesign(data) {
   base.moves = base.moves.map((m, i) => ({ ...m, ...(data.moves?.[i] || {}) }));
   // 예전 형식(자세·안전을 한 칸 'form'에)으로 저장된 설계도는 '정확한 자세' 칸으로 옮김
   base.moves.forEach((m) => { if (m.form && !m.posture) m.posture = m.form; delete m.form; });
-  for (const k of ['restMove', 'restRound', 'rounds', 'runDist', 'runWhere']) if (data[k] != null) base[k] = data[k];
+  for (const k of ['format', 'restMove', 'restRound', 'rounds', 'runDist', 'runWhere', 'cap', 'min', 'every', 'work', 'rest', 'runM']) if (data[k] != null) base[k] = data[k];
+  if (!FORMATS[base.format]) base.format = 'circuit';   // 형식이 없던 예전 설계도는 서킷
   return base;
 }
 
@@ -28,43 +32,12 @@ export function weakShare(g, weakAreas) {
   const hit = g.moves.filter((m) => m.area && weakAreas.includes(m.area)).length;
   return { counts, hit, total: g.moves.length };
 }
-const blank = (v) => String(v ?? '').trim() === '';
-const num = (v) => (v === '' || v == null ? NaN : Number(v));
 
-export function designErrors(g) {
-  const e = [];
-  g.moves.forEach((m, i) => {
-    const lb = moveLabel(i);
-    if (blank(m.name)) e.push(`${lb} 동작명`);
-    if (!MOVE_AREAS.some((a) => a.key === m.area)) e.push(`${lb} 부위`);
-    if (blank(m.muscle)) e.push(`${lb} 사용 근육`);
-    if (blank(m.posture)) e.push(`${lb} 정확한 자세`);
-    if (blank(m.safety)) e.push(`${lb} 안전 유의사항`);
-    if (blank(m.daily)) e.push(`${lb} 일상 활용`);
-    if (!(num(m.val) > 0)) e.push(`${lb} 횟수/시간`);
-    if (!(num(m.order) >= 1)) e.push(`${lb} 순서`);
-  });
-  const orders = g.moves.map((m) => num(m.order)).filter((n) => n >= 1);
-  if (orders.length === MOVE_COUNT && new Set(orders).size !== MOVE_COUNT) e.push('동작 순서가 겹침');
-  if (!(num(g.restMove) >= 0)) e.push('동작 사이 휴식');
-  if (!(num(g.restRound) >= 0)) e.push('라운드 사이 휴식');
-  if (!(num(g.rounds) >= 1)) e.push('라운드 수');
-  if (!(num(g.runDist) > 0)) e.push('러닝 거리');
-  if (!RUN_WHERE.includes(g.runWhere)) e.push('러닝 위치');
-  return e;
-}
+/** 빈칸 검사 — 훈련 방식별 규칙은 program.js */
+export const designErrors = (g) => programErrors(g);
 
-/** 예상 소요시간(초). 러닝은 본인 1km 기록보다 15% 느린 속도, 기록이 없으면 1km 7분 */
-export function estimate(g, runSec) {
-  const moves = g.moves.reduce((t, m) => t + (num(m.val) > 0 ? (m.mode === '초' ? num(m.val) : num(m.val) * REP_SEC) : 0), 0);
-  const rounds = Math.max(0, num(g.rounds) || 0);
-  const perRound = moves + (num(g.restMove) || 0) * (MOVE_COUNT - 1);
-  const pace = runSec ? (runSec * 1.15) / 1000 : DEFAULT_RUN_PACE;
-  const runOnce = (num(g.runDist) || 0) * pace;
-  const runTimes = g.runWhere === '라운드마다' ? rounds : g.runWhere ? 1 : 0;
-  const restRounds = Math.max(0, rounds - 1) * (num(g.restRound) || 0);
-  return { total: Math.round(rounds * perRound + restRounds + runOnce * runTimes), perRound, rounds, restRounds, runOnce, runTimes };
-}
+/** 예상 소요시간(초) — 훈련 방식별 진행표로 계산 (program.js) */
+export const estimate = (g, runSec) => programEstimate(g, runSec);
 
 export function designConvert(sum, isBlank) {
   if (isBlank) return 2;

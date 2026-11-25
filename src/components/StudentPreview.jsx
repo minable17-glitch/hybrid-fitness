@@ -56,7 +56,7 @@ export default function StudentPreview({ detail: d, onClose }) {
               <ResultStep answers={answers} vals={vals} run={run} sex={d.student.sex} weak={weak} editable={design.status !== '제출'}
                 submitted={design.status === '제출'} onChange={setWeak} showToast={showToast} preview preload={preload} />
             )}
-            {step === 'library' && <LibraryStep viewed onViewed={noop} />}
+            {step === 'library' && <LibraryStep viewed onViewed={noop} weakAreas={weak.areas} />}
             {step === 'design' && (
               <DesignStep studentNo={d.student.studentNo} design={design} weak={weak} runSec={d.student.runSec}
                 settings={{ designOpen: true, suspiciousChars: 20 }} onChange={(data) => setDesign((g) => ({ ...g, data }))}

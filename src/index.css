@@ -255,3 +255,47 @@ tr.click:hover td { background: #f6faf8; }
 .preview-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px; background: #1c2522; color: #fff; }
 .preview-bar span { flex: 1; font-size: 14px; opacity: 0.85; }
 .preview-scroll { flex: 1; overflow-y: auto; }
+
+/* 움직임 교과서 (앱 안) */
+.tb-frame { border-radius: 14px; overflow: hidden; border: 1px solid var(--border-color); background: #14284b; }
+.tb-frame iframe, .tb-panel iframe { width: 100%; height: 100%; border: 0; display: block; }
+.tb-links { display: flex; flex-direction: column; gap: 6px; }
+.tb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tb-row .chip, .tb-links .chip { padding: 5px 11px; font-size: 13px; }
+.tb-panel { position: fixed; inset: 0; z-index: 95; background: var(--bg); display: flex; flex-direction: column; }
+.tb-panel iframe { flex: 1; }
+.tb-panel-links { padding: 8px 12px; max-height: 26vh; overflow: auto; background: var(--surface); border-bottom: 1px solid var(--border-color); }
+
+/* 바로 해 보기 타이머 */
+.timer { position: fixed; inset: 0; z-index: 120; background: #0f1f1b; color: #fff; display: flex; flex-direction: column; }
+.timer-top { display: flex; align-items: center; gap: 12px; padding: 12px 16px; font-size: 14px; opacity: 0.9; }
+.timer-top span:first-child { flex: 1; }
+.timer-clock { font-variant-numeric: tabular-nums; font-weight: 800; }
+.timer .btn-outline { background: transparent; color: #fff; border-color: rgba(255, 255, 255, 0.4); }
+.timer-mid { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 16px; gap: 6px; }
+.timer-mid p { max-width: 520px; }
+.timer-label { font-size: clamp(28px, 6vw, 52px); font-weight: 800; }
+.timer-sub { font-size: 20px; opacity: 0.85; }
+.timer-big { font-size: clamp(64px, 16vw, 140px); font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.05; }
+.timer .muted { color: rgba(255, 255, 255, 0.7); }
+.timer-btn { font-size: 20px; padding: 16px 28px; min-height: 60px; }
+.timer-next { margin-top: 14px; opacity: 0.75; }
+.timer-bar { width: min(520px, 90%); height: 6px; background: rgba(255, 255, 255, 0.15); border-radius: 99px; margin-top: 14px; overflow: hidden; }
+.timer-bar i { display: block; height: 100%; background: var(--accent); }
+.k-rest { background: #12324a; }
+.k-run { background: #3b2a10; }
+
+/* 훈련 방식 고르기 */
+.fmt-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+@media (max-width: 600px) { .fmt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.fmt { border: 1.5px solid var(--border-color); background: #fff; border-radius: 12px; padding: 10px 8px; cursor: pointer; text-align: left; }
+.fmt b { display: block; font-size: 15px; }
+.fmt small { color: var(--body-muted); font-size: 12px; }
+.fmt.on { border-color: var(--primary); background: var(--primary-soft); }
+.fmt:disabled { cursor: not-allowed; opacity: 0.7; }
+.fmt-desc { background: var(--surface-alt); border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; font-size: 14px; }
+.fmt-desc p { margin: 4px 0; }
+ol.tl { margin: 6px 0 0; padding-left: 24px; max-height: 340px; overflow: auto; font-size: 14px; }
+ol.tl li { padding: 2px 0; }
+ol.tl li.tl-rest { color: var(--info); }
+ol.tl li.tl-run { color: #9a4210; font-weight: 700; }

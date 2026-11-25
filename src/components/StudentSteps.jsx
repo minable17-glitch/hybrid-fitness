@@ -5,6 +5,7 @@ import { getSchoolAverages, getMyDistributions } from '../lib/api';
 import Distribution from './Distribution';
 import { RadarPair } from './Radar';
 import { papsGrade } from '../lib/paps';
+import { TextbookShortcuts, TextbookFrame } from './Textbook';
 
 function Closed({ what }) {
   return <div className="msg msg-warn">지금은 {what} 시간이 아니에요. 선생님이 열어 주면 입력할 수 있어요. (보는 것은 가능)</div>;
@@ -168,18 +169,23 @@ export function ResultStep({ answers, vals, run, sex, weak, editable, submitted,
   );
 }
 
-/* ── 5. 동작 라이브러리: 3D 움직임 교과서 링크 ── */
-export function LibraryStep({ viewed, onViewed, next }) {
+/* ── 5. 동작 라이브러리: 움직임 교과서를 앱 안에 띄움 (교과서는 원래 사이트에서 불러와 앱은 가벼운 그대로) ── */
+export function LibraryStep({ viewed, onViewed, next, weakAreas = [] }) {
   // 이 화면을 열면 '동작 학습'을 한 것으로 보고 설계도를 연다
   useEffect(() => { if (!viewed) onViewed(); }, [viewed, onViewed]);
+  const [src, setSrc] = useState(TEXTBOOK_URL);
   return (
     <>
       <div className="card">
-        <h2>동작 라이브러리</h2>
-        <p className="muted" style={{ marginTop: 0 }}>3D 움직임 교과서에서 부위별 동작의 사용 근육, 바른 자세, 안전, 일상 활용을 보고 배워요. 설계도에는 자동으로 들어가지 않으니, 이해한 내용을 내 말로 적어야 해요.</p>
-        <a className="btn btn-accent" href={TEXTBOOK_URL} target="_blank" rel="noopener noreferrer" id="textbook">3D 움직임 교과서 열기 ↗</a>
+        <div className="row between">
+          <h2 style={{ margin: 0 }}>동작 라이브러리</h2>
+          <a className="btn btn-outline btn-sm" href={src} target="_blank" rel="noopener noreferrer" id="textbook">새 창에서 열기 ↗</a>
+        </div>
+        <p className="muted">3D 움직임 교과서에서 동작의 사용 근육, 바른 자세, 안전, 일상 활용과 훈련 방식을 보고 배워요. 설계도에는 자동으로 들어가지 않으니, 이해한 내용을 내 말로 적어야 해요.</p>
+        <TextbookShortcuts weakAreas={weakAreas} onOpen={setSrc} />
       </div>
-      {next}
+      <TextbookFrame key={src} src={src} />
+      <div style={{ marginTop: 14 }}>{next}</div>
     </>
   );
 }

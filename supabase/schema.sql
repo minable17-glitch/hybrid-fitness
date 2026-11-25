@@ -85,7 +85,7 @@ create table if not exists weaknesses (
 
 create table if not exists designs (
   student_no text primary key references roster(student_no) on delete cascade on update cascade,
-  data jsonb not null default '{}',     -- {moves:[5개 {name, area, muscle, posture, safety, daily, order, mode, val}], restMove, restRound, rounds, runDist, runWhere}
+  data jsonb not null default '{}',     -- {format, moves:[5개 {name, area, muscle, posture, safety, daily, order, mode, val}], 방식별 칸(rounds, restMove, restRound, cap, min, every, work, rest, runM), runDist, runWhere}
   est_min numeric,
   status text not null default '작성 중' check (status in ('작성 중', '제출')),
   submitted_at timestamptz,
@@ -176,7 +176,8 @@ language sql stable security definer set search_path = public as $$
   from app_settings where id = 1
 $$;
 
--- 설계도 빈칸 검사 (src/lib/design.js 의 designErrors 와 같은 규칙)
+-- 설계도 빈칸 검사 (src/lib/program.js 의 programErrors 와 같은 규칙)
+-- 훈련 방식(format): circuit 서킷 | fortime 포타임 | amrap AMRAP | emom EMOM | tabata 타바타 | race 하이록스식 (없으면 circuit)
 create or replace function design_errors(d jsonb) returns text[]
 language plpgsql immutable as $$
 declare
@@ -186,7 +187,16 @@ declare
   i int;
   o numeric;
   orders numeric[] := '{}';
+  f text := coalesce(nullif(d ->> 'format', ''), 'circuit');
+  needs_amount boolean;
+  fld record;
+  v numeric;
 begin
+  if f not in ('circuit', 'fortime', 'amrap', 'emom', 'tabata', 'race') then
+    e := e || '훈련 방식'::text;
+    f := 'circuit';
+  end if;
+  needs_amount := f <> 'tabata';
   for i in 0..4 loop
     m := coalesce(d -> 'moves' -> i, '{}'::jsonb);
     lb := '동작 ' || (i + 1);
@@ -196,18 +206,36 @@ begin
     if coalesce(trim(m ->> 'posture'), '') = '' then e := e || (lb || ' 정확한 자세'); end if;
     if coalesce(trim(m ->> 'safety'), '') = '' then e := e || (lb || ' 안전 유의사항'); end if;
     if coalesce(trim(m ->> 'daily'), '') = '' then e := e || (lb || ' 일상 활용'); end if;
-    if coalesce(try_num(m ->> 'val'), 0) <= 0 then e := e || (lb || ' 횟수/시간'); end if;
+    if needs_amount and coalesce(try_num(m ->> 'val'), 0) <= 0 then e := e || (lb || ' 횟수/시간'); end if;
     o := try_num(m ->> 'order');
     if o is null or o < 1 then e := e || (lb || ' 순서'); else orders := orders || o; end if;
   end loop;
   if cardinality(orders) = 5 and (select count(distinct x) from unnest(orders) x) <> 5 then
     e := e || '동작 순서가 겹침'::text;
   end if;
-  if coalesce(try_num(d ->> 'restMove'), -1) < 0 then e := e || '동작 사이 휴식'::text; end if;
-  if coalesce(try_num(d ->> 'restRound'), -1) < 0 then e := e || '라운드 사이 휴식'::text; end if;
-  if coalesce(try_num(d ->> 'rounds'), 0) < 1 then e := e || '라운드 수'::text; end if;
-  if coalesce(try_num(d ->> 'runDist'), 0) <= 0 then e := e || '러닝 거리'::text; end if;
-  if coalesce(d ->> 'runWhere', '') not in ('시작 전', '라운드마다', '마지막') then e := e || '러닝 위치'::text; end if;
+  -- 방식별 칸과 범위 (program.js FIELDS)
+  for fld in
+    select * from (values
+      ('circuit', 'rounds', '라운드(바퀴)', '번', 1, 20), ('circuit', 'restMove', '동작 사이 휴식', '초', 0, 180), ('circuit', 'restRound', '라운드 사이 휴식', '초', 0, 300),
+      ('fortime', 'rounds', '라운드(바퀴)', '번', 1, 20), ('fortime', 'cap', '시간 제한', '분', 3, 30),
+      ('amrap', 'min', '전체 시간', '분', 3, 20),
+      ('emom', 'min', '전체 시간', '분', 3, 20), ('emom', 'every', '간격', '분', 1, 3),
+      ('tabata', 'work', '운동', '초', 10, 60), ('tabata', 'rest', '휴식', '초', 5, 60), ('tabata', 'rounds', '라운드(바퀴)', '번', 1, 20),
+      ('race', 'runM', '한 번 달리기', 'm', 50, 400), ('race', 'cap', '시간 제한', '분', 3, 30)
+    ) as t(fmt, k, label, unit, lo, hi) where fmt = f
+  loop
+    v := try_num(d ->> fld.k);
+    if v is null or v < fld.lo or v > fld.hi then
+      e := e || (fld.label || ' (' || fld.lo || '~' || fld.hi || fld.unit || ')');
+    end if;
+  end loop;
+  if f <> 'race' then
+    if coalesce(try_num(d ->> 'runDist'), 0) <= 0 then e := e || '러닝 거리'::text; end if;
+    if coalesce(d ->> 'runWhere', '') not in ('시작 전', '마지막')
+       and not (f in ('circuit', 'fortime') and d ->> 'runWhere' = '라운드마다') then
+      e := e || '러닝 위치'::text;
+    end if;
+  end if;
   return e;
 end;
 $$;

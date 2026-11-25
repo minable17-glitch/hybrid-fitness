@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { MOVE_COUNT, MOVE_AREAS, RUN_WHERE, REP_SEC, WARN_MIN, areaName, moveAreaName } from '../lib/content';
-import { designErrors, estimate, moveLabel, weakShare, fmtSec, fmtTime } from '../lib/design';
+import { MOVE_COUNT, MOVE_AREAS, REP_SEC, WARN_MIN, areaName, moveAreaName } from '../lib/content';
+import { designErrors, moveLabel, weakShare, fmtSec, fmtTime } from '../lib/design';
+import { FORMATS, FORMAT_KEYS, FIELDS, formatOf, timeline, timelineSummary, programHints, withFormatDefaults } from '../lib/program';
+import { TextbookPanel } from './Textbook';
+import ProgramTimer from './ProgramTimer';
 import { appendLog } from '../lib/offlineQueue';
 import { Modal } from './ui';
 
 const awayKey = (no) => `hybrid_away_${no}`;
-const NUM_FIELDS = ['order', 'val', 'restMove', 'restRound', 'rounds', 'runDist'];
+const NUM_FIELDS = ['order', 'val', 'restMove', 'restRound', 'rounds', 'runDist', 'cap', 'min', 'every', 'work', 'rest', 'runM'];
 
 /**
  * 설계도 화면 보안 (PRD):
@@ -36,6 +39,8 @@ function useGuard({ active, studentNo }) {
     const onBlur = () => {
       // 태블릿에서 선택 목록(select)이 열릴 때 창 포커스가 빠지는 경우는 제외
       if (document.activeElement?.tagName === 'SELECT') return;
+      // 앱 안 교과서 창(iframe)을 누르면 창 포커스가 iframe 으로 가지만 앱을 떠난 게 아님
+      if (document.activeElement?.tagName === 'IFRAME') return;
       start();
     };
     const onFocus = () => end();
@@ -60,6 +65,8 @@ export default function DesignStep({ studentNo, design, weak, runSec, settings, 
   const [introOk, setIntroOk] = useState(false);
   const [dialog, setDialog] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [showTb, setShowTb] = useState(false);
+  const [showTimer, setShowTimer] = useState(false);
   const boxRef = useRef(null);
   const g = design.data;
   useGuard({ active: editable && introOk && !preview, studentNo });
@@ -107,13 +114,13 @@ export default function DesignStep({ studentNo, design, weak, runSec, settings, 
       onChange={(e) => set(path, e.target.value)} />
   );
 
-  const e = estimate(g, runSec);
   const share = weakShare(g, weak.areas);
-  const over = e.total > WARN_MIN * 60;
-  const ordered = g.moves.map((m, i) => ({ m, i })).filter((x) => Number(x.m.order) >= 1).sort((a, b) => a.m.order - b.m.order);
-  const dup = new Set(ordered.map((x) => x.m.order)).size !== ordered.length;
-  const runLi = g.runDist ? <li key="run">러닝 {g.runDist}m</li> : null;
-  const moveLis = ordered.map((x) => <li key={x.i}>{x.m.name || moveLabel(x.i)}{Number(x.m.val) > 0 ? ` (${x.m.val}${x.m.mode})` : ''}</li>);
+  const f = formatOf(g), F = FORMATS[f];
+  const tl = timeline(g, runSec);
+  const over = tl.total > WARN_MIN * 60;
+  const hints = programHints(g, runSec);
+  const orders = g.moves.map((m) => Number(m.order)).filter((n) => n >= 1);
+  const dup = new Set(orders).size !== orders.length;
 
   function askSubmit() {
     const errs = designErrors(g);
@@ -157,6 +164,7 @@ export default function DesignStep({ studentNo, design, weak, runSec, settings, 
       {!preview && !submitted && !settings.designOpen && <div className="msg msg-warn">지금은 설계도 작성 시간이 아니에요. 선생님이 열어 주면 작성할 수 있어요. (보는 것은 가능)</div>}
       <div className="card">
         <h2>하이브리드 체력 프로그램 설계도</h2>
+        <button type="button" className="btn btn-outline btn-sm" style={{ float: 'right' }} onClick={() => setShowTb(true)} id="dtextbook">📖 교과서 보기</button>
         <p className="muted" style={{ margin: 0 }}>동작 5개를 직접 적고, 동작마다 부위를 골라요. 내 약점 부위와 같은 동작은 색이 칠해져요. 이 화면은 붙여넣기가 안 되고, 나갔다 오면 기록돼요.</p>
       </div>
 
@@ -205,58 +213,79 @@ export default function DesignStep({ studentNo, design, weak, runSec, settings, 
                 </select>
               </div>
               <div className="field"><label>횟수 또는 시간</label>
-                <div className="amount">
+                {!F.amounts ? <div className="muted" style={{ padding: '10px 0' }}>타바타는 운동·휴식 시간을 따라요</div> : <div className="amount">
                   <select value={m.mode} disabled={!editable} data-d={`moves.${i}.mode`} onChange={(ev) => set(`moves.${i}.mode`, ev.target.value)}>
                     <option value="회">횟수(회)</option><option value="초">시간(초)</option>
                   </select>
                   {numIn(`moves.${i}.val`, m.val, `${lb} 횟수/시간`)}
-                </div>
+                </div>}
               </div>
             </div>
           </div>
         );
       })}
 
-      <div className="card">
-        <h2>프로그램 구성</h2>
+      <div className="card" id="formatCard">
+        <h2>훈련 방식</h2>
+        <p className="muted" style={{ margin: 0 }}>움직임 교과서 '하이브리드 훈련장'의 방식 중 하나를 골라 구성해요.
+          <button type="button" className="btn btn-outline btn-sm" style={{ marginLeft: 6 }} onClick={() => setShowTb(true)}>방식 배우기 (교과서)</button></p>
+        <div className="fmt-grid" role="radiogroup" aria-label="훈련 방식">
+          {FORMAT_KEYS.map((k) => (
+            <button key={k} type="button" role="radio" aria-checked={f === k} className={`fmt ${f === k ? 'on' : ''}`} disabled={!editable}
+              data-format={k} onClick={() => onChange(withFormatDefaults(g, k))}>
+              <b>{FORMATS[k].name}</b><small>{FORMATS[k].ko}</small>
+            </button>
+          ))}
+        </div>
+        <div className="fmt-desc">
+          <b>{F.name}</b> <span className="muted">({F.from})</span>
+          <p>{F.rule}</p>
+          <p className="muted">💡 {F.tip}</p>
+        </div>
         <div className="grid3">
-          <div className="field"><label>동작 사이 휴식 (초)</label>{numIn('restMove', g.restMove, '동작 사이 휴식')}</div>
-          <div className="field"><label>라운드 사이 휴식 (초)</label>{numIn('restRound', g.restRound, '라운드 사이 휴식')}</div>
-          <div className="field"><label>라운드 수</label>{numIn('rounds', g.rounds, '라운드 수')}</div>
+          {F.fields.map((k) => (
+            <div className="field" key={k}><label>{FIELDS[k].label} ({FIELDS[k].unit})</label>{numIn(k, g[k], FIELDS[k].label)}</div>
+          ))}
         </div>
-        <div className="grid2">
-          <div className="field"><label>러닝 거리 (m)</label>{numIn('runDist', g.runDist, '러닝 거리')}</div>
-          <div className="field"><label>러닝 위치</label>
-            <select value={g.runWhere} disabled={!editable} data-d="runWhere" onChange={(ev) => set('runWhere', ev.target.value)}>
-              <option value="">선택</option>
-              {RUN_WHERE.map((x) => <option key={x}>{x}</option>)}
-            </select>
+        {f === 'race' ? (
+          <p className="muted" style={{ margin: 0 }}>러닝은 동작(스테이션) 앞마다 {g.runM || '?'}m씩 들어가요. 모두 {MOVE_COUNT}번 달려요.</p>
+        ) : (
+          <div className="grid2">
+            <div className="field"><label>러닝 거리 (m)</label>{numIn('runDist', g.runDist, '러닝 거리')}</div>
+            <div className="field"><label>러닝 위치</label>
+              <select value={g.runWhere} disabled={!editable} data-d="runWhere" onChange={(ev) => set('runWhere', ev.target.value)}>
+                <option value="">선택</option>
+                {F.runWhere.map((x) => <option key={x}>{x}</option>)}
+              </select>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="card">
         <h2>미리 보기</h2>
         <div className="grid2">
           <div className="preview">
-            <b>진행 순서</b>
-            <ol id="orderpv">
-              {g.runWhere === '시작 전' && runLi}
-              {moveLis.length ? moveLis : <li className="muted">순서를 정하면 여기에 보여요</li>}
-              {g.runWhere === '라운드마다' && runLi}
+            <b>진행표</b> <span className="muted">{timelineSummary(g)}</span>
+            <ol className="tl" id="orderpv">
+              {tl.segs.slice(0, 30).map((sg, k) => (
+                <li key={k} className={`tl-${sg.kind}`}>{sg.tag ? <span className="muted">{sg.tag} </span> : null}{sg.label} <span className="muted">{sg.sub}</span></li>
+              ))}
+              {tl.segs.length > 30 && <li className="muted">… 모두 {tl.segs.length}칸</li>}
+              {!tl.segs.length && <li className="muted">동작을 적으면 여기에 보여요</li>}
             </ol>
-            {g.rounds ? <div className="muted">{g.runWhere === '라운드마다' ? '위 묶음(러닝 포함)을' : '위 동작을'} {g.rounds}라운드 반복{g.runWhere === '마지막' && g.runDist ? ` → 마지막에 러닝 ${g.runDist}m` : ''}</div> : null}
             {dup && <div className="msg msg-warn" style={{ marginTop: 8 }}>순서 번호가 겹쳐요.</div>}
           </div>
           <div>
             <b>예상 소요시간</b>
-            <div className={`est ${over ? 'over' : ''}`} id="est">{fmtSec(e.total)}</div>
+            <div className={`est ${over ? 'over' : ''}`} id="est">{fmtSec(tl.total)}</div>
             <div className="muted">
-              한 라운드 {fmtSec(e.perRound)} × {e.rounds}라운드 + 라운드 휴식 {fmtSec(e.restRounds)}
-              {e.runTimes ? ` + 러닝 ${fmtSec(e.runOnce)} × ${e.runTimes}번` : ''}<br />
-              횟수는 1회 약 {REP_SEC}초, 러닝은 {runSec ? '내 1km 기록보다 조금 느린 속도' : '1km 7분 속도'}로 계산
+              {tl.cap ? `시간 제한 ${tl.cap / 60}분 · ` : ''}횟수는 1회 약 {REP_SEC}초, 러닝은 {runSec ? '내 1km 기록보다 조금 느린 속도' : '1km 7분 속도'}로 계산
             </div>
-            {over && <div className="msg msg-warn" style={{ marginTop: 8 }}>{WARN_MIN}분을 넘어요. 라운드·횟수·휴식을 줄여 보세요.</div>}
+            {over && <div className="msg msg-warn" style={{ marginTop: 8 }}>{WARN_MIN}분을 넘어요. 시간·라운드·횟수를 줄여 보세요.</div>}
+            {hints.map((h) => <div key={h} className="msg msg-info" style={{ marginTop: 8 }}>{h}</div>)}
+            <button type="button" className="btn btn-accent" style={{ marginTop: 10 }} disabled={!tl.segs.length} onClick={() => setShowTimer(true)} id="dplay">▶ 바로 해 보기</button>
+            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>타이머로 내 프로그램을 따라 해 봐요. 저장과는 상관없어요.</div>
           </div>
         </div>
       </div>
@@ -277,6 +306,8 @@ export default function DesignStep({ studentNo, design, weak, runSec, settings, 
       {dialog && (
         <Modal title={dialog.title} buttons={dialog.buttons} onClose={() => setDialog(null)}>{dialog.body}</Modal>
       )}
+      {showTb && <TextbookPanel weakAreas={weak.areas} onClose={() => setShowTb(false)} />}
+      {showTimer && <ProgramTimer design={g} runSec={runSec} onClose={() => setShowTimer(false)} />}
     </div>
   );
 }

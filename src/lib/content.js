@@ -44,6 +44,22 @@ export const MEASURES = [
 ];
 // 동작 라이브러리 화면에 거는 3D 교과서 링크 (squat-coach 저장소의 움직임 교과서)
 export const TEXTBOOK_URL = 'https://minable17-glitch.github.io/squat-coach/textbook/';
+const TB = 'https://minable17-glitch.github.io/squat-coach/textbook/';
+/** 움직임 교과서 바로가기 — 장면 주소는 hybrid.html#s-동작-장면, 훈련 방식 배우기는 train.html#learn */
+export const TEXTBOOK_LINKS = {
+  home: TB,
+  train: `${TB}train.html#learn`,
+  scene: (move, scene) => `${TB}hybrid.html#s-${move}-${scene}`,
+};
+/** 부위별로 먼저 보면 좋은 교과서 장면 [이름, 동작, 장면] */
+export const TEXTBOOK_SCENES = {
+  push: [['푸시업', 'pushup', 'base'], ['무릎 대고 푸시업', 'pushup', 'kneepu'], ['덤벨 숄더 프레스', 'pushup', 'press']],
+  pull: [['덤벨 로우', 'pull', 'base'], ['덤벨 컬', 'pull', 'curl'], ['파머스 캐리', 'plank', 'carry']],
+  core: [['플랭크', 'plank', 'base'], ['버드독', 'plank', 'birddog'], ['베어 크롤', 'plank', 'bear']],
+  legEnd: [['스쿼트', 'squat', 'base'], ['런지', 'lunge', 'base'], ['벽 스쿼트', 'squat', 'wall']],
+  legPow: [['점프 스쿼트', 'squat', 'jump'], ['박스 점프', 'squat', 'boxjump'], ['케틀벨 스윙', 'hinge', 'swing']],
+  cardio: [['버피', 'pushup', 'burpee'], ['마운틴 클라이머', 'plank', 'climber'], ['로잉 머신', 'pull', 'erg']],
+};
 
 export const RUN = { key: 'run1km', name: '1km 달리기', area: 'cardio' };
 

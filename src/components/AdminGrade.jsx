@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { adminStudentDetail, adminSaveScore, adminUnlockDesign } from '../lib/api';
 import { MEASURES, SCORE_ITEMS, SCORE_MAX, MOVE_AREAS, WARN_MIN, QUESTION_COUNT, areaName, moveAreaName } from '../lib/content';
 import { normalizeDesign, estimate, moveLabel, weakShare, designConvert, diagSums, clsLabel, fmtSec, fmtNum, fmtTime } from '../lib/design';
+import { timeline, timelineSummary } from '../lib/program';
 import { LogTable } from './AdminTables';
 import Distribution from './Distribution';
 import { RadarPair } from './Radar';
@@ -71,6 +72,7 @@ function Detail({ d, onUnlock, onPreview }) {
   const answers = Array.from({ length: QUESTION_COUNT }, (_, i) => Number(d.diag?.answers?.[i]) || 0);
   const vals = d.measure?.vals || {};
   const e = estimate(g, d.student.runSec);
+  const tl = timeline(g, d.student.runSec);
   const weakAreas = d.weak?.areas || [];
   const share = weakShare(g, weakAreas);
   const row = (name, v, key, unit, isRun) => (
@@ -131,8 +133,11 @@ function Detail({ d, onUnlock, onPreview }) {
       })}
       <div className="card">
         <h3>⑤ 프로그램 구성</h3>
-        <p>동작 사이 휴식 <b>{g.restMove === '' ? '-' : `${g.restMove}초`}</b> · 라운드 사이 휴식 <b>{g.restRound === '' ? '-' : `${g.restRound}초`}</b> · 라운드 <b>{g.rounds || '-'}</b> · 러닝 <b>{g.runDist ? `${g.runDist}m` : '-'}</b> ({g.runWhere || '-'})</p>
-        <p>예상 소요시간 <b className={e.total > WARN_MIN * 60 ? 'est over' : ''}>{fmtSec(e.total)}</b></p>
+        <p><b>{timelineSummary(g)}</b></p>
+        <p>예상 소요시간 <b className={e.total > WARN_MIN * 60 ? 'est over' : ''}>{fmtSec(e.total)}</b>{e.cap ? <span className="muted"> (시간 제한 {e.cap / 60}분)</span> : null}</p>
+        <details><summary className="muted">진행표 보기 ({tl.segs.length}칸)</summary>
+          <ol className="tl">{tl.segs.map((sg, k) => <li key={k} className={`tl-${sg.kind}`}>{sg.tag ? <span className="muted">{sg.tag} </span> : null}{sg.label} <span className="muted">{sg.sub}</span></li>)}</ol>
+        </details>
       </div>
       <div className="card"><h3>이탈·의심 입력 기록</h3><LogTable logs={d.logs} /></div>
     </>
