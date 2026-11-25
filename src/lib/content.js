@@ -81,9 +81,9 @@ export const MIN_REASON = 10;
 
 // 설계 5항목 × 2점 = 10점 → 설계 환산 14점 (schema.sql design_convert 와 같은 표)
 export const SCORE_ITEMS = [
-  { label: '① 약점 진단과 보완', short: '①', max: 2 },
+  { label: '① 목표 부위 선정과 반영', short: '①', max: 2 },
   { label: '② 근육 부위', short: '②', max: 2 },
-  { label: '③ 정확한 자세·안전', short: '③', max: 2 },
+  { label: '③ 자세·안전', short: '③', max: 2 },
   { label: '④ 일상 활용', short: '④', max: 2 },
   { label: '⑤ 프로그램 구성', short: '⑤', max: 2 },
 ];

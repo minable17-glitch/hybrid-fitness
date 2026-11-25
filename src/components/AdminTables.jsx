@@ -18,11 +18,11 @@ export function AdminProgress({ students, ov, cls, openStudent }) {
   return (
     <>
       <div className="card row between">
-        <div><b>{clsLabel(cls)}</b> {students.length}명 · 자가진단 {c((s) => s.diag)} · 측정 {c((s) => s.measure)} · 약점 {c((s) => s.weak)} · <b>설계도 제출 {c((s) => s.designStatus === '제출')}</b></div>
+        <div><b>{clsLabel(cls)}</b> {students.length}명 · 자가진단 {c((s) => s.diag)} · 측정 {c((s) => s.measure)} · 목표 부위 {c((s) => s.weak)} · <b>설계도 제출 {c((s) => s.designStatus === '제출')}</b></div>
         <div className="muted">진단 {st.diagOpen ? <b className="y">열림</b> : '닫힘'} · 설계 {st.designOpen ? <b className="y">열림</b> : '닫힘'}</div>
       </div>
       <div className="tbl-wrap"><table>
-        <thead><tr><th>번호</th><th>이름</th><th className="c">자가진단</th><th className="c">측정</th><th className="c">약점 선택</th><th>설계도</th><th className="c">예상(분)</th><th className="c">이탈</th><th className="c">의심 입력</th></tr></thead>
+        <thead><tr><th>번호</th><th>이름</th><th className="c">자가진단</th><th className="c">측정</th><th className="c">목표 부위</th><th>설계도</th><th className="c">예상(분)</th><th className="c">이탈</th><th className="c">의심 입력</th></tr></thead>
         <tbody>
           {students.map((s) => (
             <tr key={s.studentNo} className="click" data-no={s.studentNo} onClick={() => openStudent(s.studentNo)}>

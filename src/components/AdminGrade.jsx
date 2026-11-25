@@ -3,6 +3,7 @@ import { adminStudentDetail, adminSaveScore, adminUnlockDesign } from '../lib/ap
 import { MEASURES, SCORE_ITEMS, SCORE_MAX, MOVE_AREAS, WARN_MIN, QUESTION_COUNT, areaName, moveAreaName } from '../lib/content';
 import { normalizeDesign, estimate, moveLabel, weakShare, designConvert, diagSums, clsLabel, fmtSec, fmtNum, fmtTime } from '../lib/design';
 import { timeline, timelineSummary } from '../lib/program';
+import { gradingHints, cellState } from '../lib/grading';
 import { LogTable } from './AdminTables';
 import Distribution from './Distribution';
 import { RadarPair } from './Radar';
@@ -19,6 +20,7 @@ function ScorePanel({ detail, onSaved, showToast }) {
   const [items, setItems] = useState(() => (sc.items || SCORE_ITEMS.map(() => null)).slice(0, SCORE_ITEMS.length).map((v) => (v == null ? null : Number(v))));
   const [blank, setBlank] = useState(!!sc.blank);
   const [savedAt, setSavedAt] = useState(sc.updated_at || null);
+  const hints = gradingHints(normalizeDesign(detail.design?.data), detail.weak);
   const all = items.every((v) => v != null);
   const sum = all ? items.reduce((a, b) => a + b, 0) : null;
   const conv = designConvert(sum, blank);
@@ -40,14 +42,17 @@ function ScorePanel({ detail, onSaved, showToast }) {
       {SCORE_ITEMS.map((it, i) => {
         const lv = levelOf(items[i], it.max);
         const pick = (v) => { const n = items.slice(); n[i] = v; setItems(n); void save(n, blank); };
+        const h = hints[i];
         return (
-          <div key={it.label}>
-            <b>{it.label}</b> <span className="muted">({it.max}점)</span>
+          <div key={it.label} className="grade-item">
+            <b>{it.label}</b> <span className="suggest" title="설계도에서 센 결과로 계산한 추천 점수예요">추천 {h.suggest}</span>
             <div className="lv" data-item={i}>
-              <button type="button" className={lv === 'full' ? 'on' : ''} onClick={() => pick(it.max)}>충족 {it.max}</button>
-              <button type="button" className={lv === 'part' ? 'on' : ''} onClick={() => pick(it.max / 2)}>부분 {it.max / 2}</button>
-              <button type="button" className={lv === 'none' ? 'on' : ''} onClick={() => pick(0)}>미흡 0</button>
+              <button type="button" className={lv === 'full' ? 'on' : ''} onClick={() => pick(it.max)}>2점</button>
+              <button type="button" className={lv === 'part' ? 'on' : ''} onClick={() => pick(it.max / 2)}>1점</button>
+              <button type="button" className={lv === 'none' ? 'on' : ''} onClick={() => pick(0)}>0점</button>
             </div>
+            <div className="grade-facts">{h.facts}</div>
+            <div className="grade-rule">{h.rule}</div>
           </div>
         );
       })}
@@ -110,23 +115,24 @@ function Detail({ d, onUnlock, onPreview }) {
           <Distribution measureKey="run1km" name="1km 달리기" mine={d.student.runSec} dist={d.distributions?.run1km} avgInfo={avg.run1km} lowerBetter isTime sex={d.student.sex} />
         </div>
       </div>
+      <div className="msg msg-info" style={{ fontSize: 13 }}>칸 색: <span className="ro-key empty">빈칸</span> <span className="ro-key short">10자 미만(막연)</span> <span className="ro-key ok">구체적</span> — 오른쪽 '추천'은 이 색을 센 결과예요. 점수는 직접 눌러 주세요.</div>
       <div className="card">
-        <h3>① 약점 진단과 보완</h3>
-        <p><b>{weakAreas.map(areaName).join(', ') || '-'}</b> · 약점 부위 동작 <b>{share.hit}/{share.total}칸</b>
+        <h3>① 목표 부위 선정과 반영</h3>
+        <p><b>{weakAreas.map(areaName).join(', ') || '-'}</b> · 목표 부위 동작 <b>{share.hit}개 / {share.total}개</b>
           <span className="muted"> ({MOVE_AREAS.map((a) => `${a.name} ${share.counts[a.key]}`).join(', ')})</span></p>
-        <div className="ro">{d.weak?.reason || ''}</div>
+        <div className={`ro ${cellState(d.weak?.reason)}`}>{d.weak?.reason || ''}</div>
       </div>
       {g.moves.map((m, i) => {
         const hit = m.area && weakAreas.includes(m.area);
         return (
           <div className={`card move ${hit ? 'hit' : m.area ? '' : 'other'}`} key={i}>
-            <h3>{hit && <span className="tag hit">약점 보완</span>}{moveLabel(i)} · {m.name || '-'} <span className="muted">[{moveAreaName(m.area) || '부위 -'}]</span>
+            <h3>{hit && <span className="tag hit">목표 부위</span>}{moveLabel(i)} · {m.name || '-'} <span className="muted">[{moveAreaName(m.area) || '부위 -'}]</span>
               <span className="muted"> ({m.order ? `${m.order}번째` : '순서 -'}, {Number(m.val) > 0 ? `${m.val}${m.mode}` : '-'})</span></h3>
             <div className="grid2">
-              <div><div className="muted">② 사용 근육</div><div className="ro">{m.muscle}</div></div>
-              <div><div className="muted">④ 일상 활용</div><div className="ro">{m.daily}</div></div>
-              <div><div className="muted">③ 정확한 자세</div><div className="ro">{m.posture}</div></div>
-              <div><div className="muted">③ 안전 유의사항</div><div className="ro">{m.safety}</div></div>
+              <div><div className="muted">② 사용 근육</div><div className={`ro ${cellState(m.muscle)}`}>{m.muscle}</div></div>
+              <div><div className="muted">④ 일상 활용</div><div className={`ro ${cellState(m.daily)}`}>{m.daily}</div></div>
+              <div><div className="muted">③ 자세</div><div className={`ro ${cellState(m.posture)}`}>{m.posture}</div></div>
+              <div><div className="muted">③ 안전</div><div className={`ro ${cellState(m.safety)}`}>{m.safety}</div></div>
             </div>
           </div>
         );

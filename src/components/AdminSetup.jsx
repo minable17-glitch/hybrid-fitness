@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { adminSaveSettings, adminImportRoster, adminDeleteStudent } from '../lib/api';
+import { adminSaveSettings, adminImportRoster, adminDeleteStudent, adminExportDesigns } from '../lib/api';
 import { MEASURES, RUN, SCORE_ITEMS } from '../lib/content';
 import { parseRun, fmtSec, fmtNum, clsLabel } from '../lib/design';
 import { parseRoster } from '../lib/roster';
+import { normalizeDesign, estimate } from '../lib/design';
+import { FORMATS, FIELDS, formatOf } from '../lib/program';
+import { moveAreaName } from '../lib/content';
 import { Modal } from './ui';
 
 /* ── 학교 평균 ── */
@@ -78,6 +81,35 @@ async function exportScores(students) {
   XLSX.writeFile(wb, `하이브리드체력_일람표_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.xlsx`);
 }
 
+/** 설계도 전체 (사양의 '설계도 탭' 열 + 훈련 방식) — 반마다 시트 하나 */
+async function exportDesigns() {
+  const XLSX = await import('xlsx');
+  const rows = await adminExportDesigns();
+  const head = ['반', '번호', '학번', '이름', '목표부위', '선택이유'];
+  for (let i = 1; i <= 5; i++) head.push(...['부위', '동작명', '근육', '자세', '안전', '일상활용'].map((h) => `동작${i}_${h}`));
+  head.push('순서', ...[1, 2, 3, 4, 5].map((i) => `횟수시간${i}`), '훈련방식', '휴식_동작사이', '휴식_라운드사이', '라운드수',
+    '방식별 설정', '러닝거리', '러닝위치', '예상시간(분)', '상태', '제출시각');
+  const wb = XLSX.utils.book_new();
+  const byClass = {};
+  for (const r of rows) (byClass[r.className] = byClass[r.className] || []).push(r);
+  for (const c of Object.keys(byClass).sort((a, b) => String(a).localeCompare(String(b), 'ko', { numeric: true }))) {
+    const aoa = byClass[c].map((r) => {
+      const g = normalizeDesign(r.data);
+      const f = formatOf(g), F = FORMATS[f];
+      const order = g.moves.map((m, i) => ({ i, o: Number(m.order) })).filter((x) => x.o >= 1).sort((a, b) => a.o - b.o).map((x) => x.i + 1).join('-');
+      const extra = F.fields.filter((k) => !['restMove', 'restRound', 'rounds'].includes(k)).map((k) => `${FIELDS[k].label} ${g[k] ?? ''}${FIELDS[k].unit}`).join(', ');
+      return [r.className, r.number, r.studentNo, r.name, (r.target || []).map(moveAreaName).join(', '), r.reason || '',
+        ...g.moves.flatMap((m) => [moveAreaName(m.area), m.name, m.muscle, m.posture, m.safety, m.daily]),
+        order, ...g.moves.map((m) => (F.amounts ? (Number(m.val) > 0 ? `${m.val}${m.mode}` : '') : '타바타 시간')),
+        F.name, g.restMove, g.restRound, g.rounds, extra, f === 'race' ? `${g.runM}m × 5` : g.runDist, f === 'race' ? '동작 앞마다' : g.runWhere,
+        r.data ? Math.round(estimate(g, r.runSec).total / 6) / 10 : '', r.status || '미작성', r.submittedAt ? new Date(r.submittedAt).toLocaleString('ko-KR') : ''];
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([head, ...aoa]), `${String(c).replace(/반$/, '')}반 설계도`.slice(0, 31));
+  }
+  const d = new Date();
+  XLSX.writeFile(wb, `하이브리드체력_설계도_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.xlsx`);
+}
+
 /* ── 명렬표·설정·일람표 ── */
 export function AdminSetup({ ov, setOv, allStudents, refresh, showToast }) {
   const s = ov.settings;
@@ -123,7 +155,7 @@ export function AdminSetup({ ov, setOv, allStudents, refresh, showToast }) {
       <div className="grid2">
         <div className="card">
           <h2>수업 열기 / 닫기</h2>
-          <div className="switch"><div><b>진단 입력</b><div className="muted">자가진단 · 측정 기록 · 약점 선택</div></div>
+          <div className="switch"><div><b>진단 입력</b><div className="muted">자가진단 · 목표 부위 선택</div></div>
             <button className={`btn ${s.diagOpen ? 'btn-primary' : 'btn-outline'}`} type="button" data-sw="diagOpen" onClick={() => patch({ diagOpen: !s.diagOpen }, s.diagOpen ? '진단을 닫았어요' : '진단을 열었어요')}>{s.diagOpen ? '열림 → 닫기' : '닫힘 → 열기'}</button></div>
           <div className="switch"><div><b>설계도 작성</b><div className="muted">임시저장 · 최종 제출</div></div>
             <button className={`btn ${s.designOpen ? 'btn-primary' : 'btn-outline'}`} type="button" data-sw="designOpen" onClick={() => patch({ designOpen: !s.designOpen }, s.designOpen ? '설계도를 닫았어요' : '설계도를 열었어요')}>{s.designOpen ? '열림 → 닫기' : '닫힘 → 열기'}</button></div>
@@ -140,6 +172,8 @@ export function AdminSetup({ ov, setOv, allStudents, refresh, showToast }) {
           <p className="muted" style={{ marginTop: 0 }}>반별 설계·수행·합계 점수를 엑셀 파일(반마다 시트 하나)로 내려받아요. 설계도를 제출하지 않았고 채점도 안 된 학생은 설계 2점(미참여)으로 들어가요.</p>
           <button className="btn btn-primary" type="button" id="export" disabled={!allStudents.length}
             onClick={() => exportScores(allStudents).catch((e) => showToast(e.message))}>일람표 내려받기 (.xlsx)</button>
+          <button className="btn btn-outline" type="button" id="exportDesigns" disabled={!allStudents.length} style={{ marginLeft: 8 }}
+            onClick={() => exportDesigns().catch((e) => showToast(e.message))}>설계도 전체 내려받기 (.xlsx)</button>
         </div>
       </div>
 

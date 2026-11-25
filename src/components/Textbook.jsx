@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AREAS, TEXTBOOK_LINKS, TEXTBOOK_SCENES, areaName } from '../lib/content';
 
-/** 교과서 바로가기 — 두 줄: [처음 · 훈련 방식 · 부위 탭] / [고른 부위의 장면들]. 내 약점 부위가 먼저 */
+/** 교과서 바로가기 — 두 줄: [처음 · 훈련 방식 · 부위 탭] / [고른 부위의 장면들]. 목표 부위가 먼저 */
 export function TextbookShortcuts({ weakAreas = [], onOpen, current }) {
   const order = [...weakAreas, ...AREAS.map((a) => a.key).filter((k) => !weakAreas.includes(k))];
   const [area, setArea] = useState(order[0]);

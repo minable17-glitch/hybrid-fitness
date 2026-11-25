@@ -69,4 +69,5 @@ export const adminSavePerf = (studentNo, p1, p2) => rpc('admin_save_perf', { p_s
 export const adminUnlockDesign = (studentNo) => rpc('admin_unlock_design', { p_student_no: studentNo });
 export const adminSaveSettings = (patch) => rpc('admin_save_settings', { p_patch: patch });
 export const adminImportRoster = (rows) => rpc('admin_import_roster', { p_rows: rows });
+export const adminExportDesigns = () => rpc('admin_export_designs');
 export const adminDeleteStudent = (studentNo) => rpc('admin_delete_student', { p_student_no: studentNo });

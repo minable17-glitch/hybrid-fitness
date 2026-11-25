@@ -1,6 +1,6 @@
 // 설계도·채점 규칙 (순수 함수). 서버(schema.sql)의 design_errors / design_convert / perf_convert 와 같은 규칙.
 import { MOVE_COUNT, MOVE_AREAS, QUESTION_COUNT, AREAS, MIN_REASON } from './content';
-import { FORMATS, programErrors, programEstimate } from './program';
+import { FORMATS, RUN_WHERE_ALIAS, programErrors, programEstimate } from './program';
 
 export function emptyDesign() {
   return {
@@ -20,12 +20,13 @@ export function normalizeDesign(data) {
   base.moves.forEach((m) => { if (m.form && !m.posture) m.posture = m.form; delete m.form; });
   for (const k of ['format', 'restMove', 'restRound', 'rounds', 'runDist', 'runWhere', 'cap', 'min', 'every', 'work', 'rest', 'runM']) if (data[k] != null) base[k] = data[k];
   if (!FORMATS[base.format]) base.format = 'circuit';   // 형식이 없던 예전 설계도는 서킷
+  if (RUN_WHERE_ALIAS[base.runWhere]) base.runWhere = RUN_WHERE_ALIAS[base.runWhere];
   return base;
 }
 
 export const moveLabel = (i) => `동작 ${i + 1}`;
 
-/** 약점 부위와 같은 동작이 몇 칸인지 (설계도 상단·채점 ① 에 표시) */
+/** 목표 부위와 같은 동작이 몇 칸인지 (설계도 상단·채점 ① 에 표시) */
 export function weakShare(g, weakAreas) {
   const counts = Object.fromEntries(MOVE_AREAS.map((a) => [a.key, 0]));
   g.moves.forEach((m) => { if (m.area in counts) counts[m.area] += 1; });
@@ -55,7 +56,8 @@ export function perfConvert(p1, p2) {
 
 /* 단계 완료 판정 (서버도 같은 기준으로 done 을 저장) */
 export const diagDone = (answers) => answers.length === QUESTION_COUNT && answers.every((v) => v >= 1 && v <= 3);
-export const weakDone = (w) => w.areas.length >= 1 && w.areas.length <= 2 && String(w.reason || '').trim().length >= MIN_REASON;
+/** 목표 부위: 5개 동작 부위 중 하나 + 이유 10자 이상 (예전 '약점' 1~2개 → 사양 변경으로 1개) */
+export const weakDone = (w) => w.areas.length === 1 && MOVE_AREAS.some((a) => a.key === w.areas[0]) && String(w.reason || '').trim().length >= MIN_REASON;
 
 /** 부위별 자가진단 합계 (3~9, 미응답이 있으면 null) */
 export function diagSums(answers) {

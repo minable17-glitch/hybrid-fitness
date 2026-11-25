@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AREAS, ANSWERS, MEASURES, RUN, MIN_REASON, TEXTBOOK_URL } from '../lib/content';
+import { AREAS, ANSWERS, MEASURES, MOVE_AREAS, RUN, MIN_REASON, TEXTBOOK_URL } from '../lib/content';
 import { diagSums, fmtSec, fmtNum } from '../lib/design';
 import { getSchoolAverages, getMyDistributions } from '../lib/api';
 import Distribution from './Distribution';
@@ -76,7 +76,7 @@ export function MeasureStep({ vals, run, sex, next }) {
   );
 }
 
-/* ── 4. 진단 결과 + 약점 선택 ── */
+/* ── 4. 진단 결과 + 목표 부위 선택 ── */
 let avgCache = null;
 
 function level(sum) {
@@ -88,7 +88,7 @@ function level(sum) {
 
 let distCache = null;
 
-export function ResultStep({ answers, vals, run, sex, weak, editable, submitted, onChange, next, showToast, preview, preload }) {
+export function ResultStep({ answers, vals, run, sex, weak, editable, submitted, onChange, next, preview, preload }) {
   // preload: 교사 미리보기에서 학생 대신 넘겨주는 {avg, dist} (학생 함수를 부르지 않음)
   const [avg, setAvg] = useState(preload ? preload.avg : avgCache);
   const [dist, setDist] = useState(preload ? preload.dist : distCache);
@@ -105,14 +105,6 @@ export function ResultStep({ answers, vals, run, sex, weak, editable, submitted,
   const sums = diagSums(answers);
   const rlen = String(weak.reason || '').trim().length;
 
-  function toggle(k) {
-    const a = weak.areas.slice();
-    const i = a.indexOf(k);
-    if (i >= 0) a.splice(i, 1);
-    else if (a.length >= 2) { showToast('약점은 2개까지 고를 수 있어요'); return; }
-    else a.push(k);
-    onChange({ areas: a, reason: weak.reason });
-  }
 
   const measureFor = (areaKey) => MEASURES.filter((m) => m.area === areaKey).map((m) => (
     <Distribution key={m.key} measureKey={m.key} name={m.name} mine={vals?.[m.key]} unit={m.unit} dist={dist?.[m.key]} avgInfo={avg?.[m.key]} sex={sex} />
@@ -147,19 +139,22 @@ export function ResultStep({ answers, vals, run, sex, weak, editable, submitted,
         </div>
       </div>
 
-      {!preview && (submitted ? <div className="msg msg-info">설계도를 제출해서 약점 선택은 바꿀 수 없어요.</div> : !editable && <Closed what="약점 선택" />)}
+      {!preview && (submitted ? <div className="msg msg-info">설계도를 제출해서 목표 부위는 바꿀 수 없어요.</div> : !editable && <Closed what="목표 부위 선택" />)}
       <div className="card">
-        <h2>우선 보완할 약점 부위</h2>
-        <p className="muted" style={{ marginTop: 0 }}>위 결과를 보고 1~2개를 고르세요.</p>
-        <div className="chips">
-          {AREAS.map((a) => (
-            <button key={a.key} type="button" data-weak={a.key} disabled={!editable} className={`chip ${weak.areas.includes(a.key) ? 'on' : ''}`} onClick={() => toggle(a.key)}>{a.name}</button>
-          ))}
+        <h2>목표 부위</h2>
+        <p className="muted" style={{ marginTop: 0 }}>진단 결과를 보고 우선 보완하거나 더 키우고 싶은 부위를 하나 고르세요. 약한 부위가 없다면 더 키우고 싶은 부위를 골라도 됩니다.</p>
+        <div className="field">
+          <label htmlFor="wtarget">목표 부위</label>
+          <select id="wtarget" data-weak-select disabled={!editable} value={weak.areas[0] || ''}
+            onChange={(e) => onChange({ areas: e.target.value ? [e.target.value] : [], reason: weak.reason })}>
+            <option value="">선택</option>
+            {MOVE_AREAS.map((a) => <option key={a.key} value={a.key}>{a.name}</option>)}
+          </select>
         </div>
-        <div className="field" style={{ marginTop: 14 }}>
-          <label htmlFor="wreason">고른 이유 — 진단 결과에서 찾은 근거를 들어 적어 보세요</label>
+        <div className="field">
+          <label htmlFor="wreason">선택 이유</label>
           <textarea id="wreason" rows={4} disabled={!editable} value={weak.reason}
-            placeholder="예: 플랭크 기록이 학교 평균보다 낮고, 수업 시간에 오래 앉아 있으면 허리가 자주 힘들다."
+            placeholder="측정 기록, 평균 대비 위치, 자가진단 중 무엇을 보고 골랐나요?"
             onChange={(e) => onChange({ areas: weak.areas, reason: e.target.value })} />
           <div className="muted">{rlen < MIN_REASON ? `조금 더 자세히 적어 주세요 (${rlen}/${MIN_REASON}자 이상)` : `${rlen}자`}</div>
         </div>

@@ -29,7 +29,7 @@ export function useToast() {
   return [msg ? <div key="toast" className="toast" role="status">{msg}</div> : null, show];
 }
 
-/** 고정 머리글 높이를 CSS 변수(--hdr)로 — 설계도 상단 약점 표시·채점 패널 위치용 */
+/** 고정 머리글 높이를 CSS 변수(--hdr)로 — 설계도 상단 목표 부위 표시·채점 패널 위치용 */
 export function useHeaderHeight(ref) {
   useEffect(() => {
     const el = ref.current;

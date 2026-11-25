@@ -3,18 +3,23 @@
 // 빈칸 검사(programErrors)는 supabase/schema.sql 의 design_errors 와 같은 규칙이어야 한다.
 import { MOVE_COUNT, MOVE_AREAS, REP_SEC, DEFAULT_RUN_PACE } from './content';
 
+// 러닝 위치 — 라운드가 있는 방식(서킷·포타임)은 사양대로 라운드 시작/끝/동작 사이, 나머지는 프로그램 시작 전/마지막
+const ROUND_RUN = ['라운드 시작', '라운드 끝', '동작 사이'];
+// 예전 값 → 새 값 (저장된 설계도 호환)
+export const RUN_WHERE_ALIAS = { 라운드마다: '라운드 끝' };
+
 export const FORMATS = {
   circuit: {
     name: '서킷', ko: '동작을 차례로 돌기', from: 'F45식 스테이션',
     rule: '동작을 정한 횟수·시간만큼 하고 다음 동작으로 넘어가요. 다섯 동작을 다 하면 한 바퀴예요.',
     tip: '동작 사이 휴식으로 자세를 다시 잡을 시간을 주세요.',
-    fields: ['rounds', 'restMove', 'restRound'], amounts: true, runWhere: ['시작 전', '라운드마다', '마지막'],
+    fields: ['rounds', 'restMove', 'restRound'], amounts: true, runWhere: ROUND_RUN,
   },
   fortime: {
     name: '포타임', ko: '정해진 양을 빨리', from: '크로스핏 와드 (For Time)',
     rule: '정한 라운드만큼 목록을 최대한 빨리 끝내요. 기록은 걸린 시간이에요.',
     tip: '너무 길어지지 않게 시간 제한을 둬요. 지난 기록보다 빨라졌는지 비교하면 점진성의 원리를 확인할 수 있어요.',
-    fields: ['rounds', 'cap'], amounts: true, runWhere: ['시작 전', '라운드마다', '마지막'],
+    fields: ['rounds', 'cap'], amounts: true, runWhere: ROUND_RUN,
   },
   amrap: {
     name: 'AMRAP', ko: '시간 안에 최대한 많이', from: '크로스핏 와드 (As Many Rounds As Possible)',
@@ -84,15 +89,20 @@ export function timeline(g, runSec) {
   const run = (d) => (d > 0 ? { kind: 'run', label: '러닝', sub: `${d}m`, dur: null, est: Math.round(d * pace) } : null);
   const push = (s) => { if (s) segs.push(s); };
   const runD = num(g.runDist) > 0 ? num(g.runDist) : 0;
-  if (f !== 'race' && g.runWhere === '시작 전') push(run(runD));
+  const where = RUN_WHERE_ALIAS[g.runWhere] || g.runWhere;
+  if (f !== 'race' && where === '시작 전') push(run(runD));
   if (f === 'circuit' || f === 'fortime') {
     const R = Math.max(1, P('rounds'));
     for (let r = 0; r < R; r++) {
+      if (where === '라운드 시작') push(run(runD));
       ms.forEach((m, k) => {
         push(work(m, { round: r + 1 }));
-        if (f === 'circuit' && k < ms.length - 1) push(rest(P('restMove')));
+        if (k < ms.length - 1) {
+          if (where === '동작 사이') push(run(runD));
+          if (f === 'circuit') push(rest(P('restMove')));
+        }
       });
-      if (g.runWhere === '라운드마다') push(run(runD));
+      if (where === '라운드 끝') push(run(runD));
       if (f === 'circuit' && r < R - 1) push(rest(P('restRound'), '라운드 휴식'));
     }
   } else if (f === 'amrap') {
@@ -106,7 +116,7 @@ export function timeline(g, runSec) {
   } else if (f === 'race') {
     ms.forEach((m) => { push(run(P('runM'))); push(work(m)); });
   }
-  if (f !== 'race' && g.runWhere === '마지막') push(run(runD));
+  if (f !== 'race' && where === '마지막') push(run(runD));
   const sum = segs.reduce((t, s) => t + (s.est || 0), 0);
   const cap = f === 'fortime' || f === 'race' ? P('cap') * 60 : null;
   return { format: f, segs, total: Math.round(cap ? Math.min(sum, cap) : sum), raw: Math.round(sum), cap };
@@ -142,7 +152,7 @@ export function programErrors(g) {
   }
   if (f !== 'race') {
     if (!(num(g.runDist) > 0)) e.push('러닝 거리');
-    if (!F.runWhere.includes(g.runWhere)) e.push('러닝 위치');
+    if (!F.runWhere.includes(RUN_WHERE_ALIAS[g.runWhere] || g.runWhere)) e.push('러닝 위치');
   }
   return e;
 }
@@ -163,6 +173,7 @@ export function programHints(g, runSec) {
 export function withFormatDefaults(g, format) {
   const next = { ...g, format };
   for (const k of FORMATS[format].fields) if (next[k] === '' || next[k] == null) next[k] = fieldDefault(format, k);
+  if (RUN_WHERE_ALIAS[next.runWhere]) next.runWhere = RUN_WHERE_ALIAS[next.runWhere];
   if (format !== 'race' && !FORMATS[format].runWhere.includes(next.runWhere)) next.runWhere = '';
   return next;
 }

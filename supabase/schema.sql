@@ -231,8 +231,9 @@ begin
   end loop;
   if f <> 'race' then
     if coalesce(try_num(d ->> 'runDist'), 0) <= 0 then e := e || '러닝 거리'::text; end if;
-    if coalesce(d ->> 'runWhere', '') not in ('시작 전', '마지막')
-       and not (f in ('circuit', 'fortime') and d ->> 'runWhere' = '라운드마다') then
+    -- 러닝 위치: 서킷·포타임은 라운드 시작 / 라운드 끝 / 동작 사이 (예전 '라운드마다' = 라운드 끝), 나머지는 시작 전 / 마지막
+    if not ((f in ('circuit', 'fortime') and coalesce(d ->> 'runWhere', '') in ('라운드 시작', '라운드 끝', '동작 사이', '라운드마다'))
+         or (f in ('amrap', 'emom', 'tabata') and coalesce(d ->> 'runWhere', '') in ('시작 전', '마지막'))) then
       e := e || '러닝 위치'::text;
     end if;
   end if;
@@ -538,11 +539,12 @@ begin
   if exists (select 1 from designs where student_no = me.student_no and status = '제출') then
     return jsonb_build_object('ok', false, 'code', 'LOCKED', 'settings', settings_public());
   end if;
+  -- 목표 부위: 설계도 동작 부위 5개 중 하나 (2026-11-25 사양: '약점' 1~2개 → '목표 부위' 1개)
   select coalesce(array_agg(a), '{}') into v_areas from (
     select distinct a from unnest(coalesce(p_areas, '{}')) a
-    where a in ('push', 'pull', 'core', 'legEnd', 'legPow', 'cardio') limit 2) t;
+    where a in ('push', 'pull', 'core', 'legEnd', 'legPow') limit 1) t;
   insert into weaknesses (student_no, areas, reason, done, rev, updated_at)
-  values (me.student_no, v_areas, v_reason, cardinality(v_areas) between 1 and 2 and length(trim(v_reason)) >= 10, p_rev, now())
+  values (me.student_no, v_areas, v_reason, cardinality(v_areas) = 1 and length(trim(v_reason)) >= 10, p_rev, now())
   on conflict (student_no) do update set areas = excluded.areas, reason = excluded.reason, done = excluded.done,
     rev = excluded.rev, updated_at = now()
   where weaknesses.rev <= excluded.rev;
@@ -831,6 +833,25 @@ begin
 end;
 $$;
 grant execute on function admin_import_roster(jsonb) to anon, authenticated;
+
+-- 설계도 전체 내려받기 (사양의 '설계도 탭' 열) — 명렬표 순서, 설계도·목표 부위가 없는 학생도 포함
+create or replace function admin_export_designs() returns jsonb
+language plpgsql security definer set search_path = public as $$
+begin
+  perform assert_teacher();
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'studentNo', r.student_no, 'className', r.class_name, 'number', r.number, 'name', r.name, 'runSec', r.run_sec,
+      'target', w.areas, 'reason', w.reason,
+      'data', g.data, 'estMin', g.est_min, 'status', g.status, 'submittedAt', g.submitted_at
+    ) order by r.class_name, r.number)
+    from roster r
+    left join weaknesses w on w.student_no = r.student_no
+    left join designs g on g.student_no = r.student_no
+  ), '[]'::jsonb);
+end;
+$$;
+grant execute on function admin_export_designs() to anon, authenticated;
 
 create or replace function admin_delete_student(p_student_no text) returns void
 language plpgsql security definer set search_path = public as $$
