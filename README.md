@@ -18,7 +18,9 @@ React 19 + Vite + Supabase + GitHub Pages (양궁·캐치볼 앱과 같은 구�
 4. **주소·키 넣기**: Project Settings → API 의 Project URL과 publishable key를 `.github/workflows/deploy.yml`의 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`에 넣고 커밋. (publishable key는 공개용 값이라 커밋해도 안전 — 실제 접근 제어는 RLS + RPC 함수가 담당)
 5. **GitHub Pages 켜기**: 저장소 Settings → Pages → Source를 **GitHub Actions**로. 이후 `main`에 push하면 자동 배포 → `https://<아이디>.github.io/hybrid-fitness/`
 6. **선생님 계정 만들기**: 배포된 주소 → 선생님으로 로그인 → "계정 만들기". 첫 계정은 가입 코드 없이, 두 번째부터는 가입 코드(기본 `hybrid-2026`, 선생님 화면에서 변경)가 필요.
-7. **명렬표 등록**: 선생님 화면 → 명렬표·설정·일람표 → 스프레드시트에서 `반 · 번호 · 학번 · 이름 · 1km 기록` 열을 복사해 붙여넣기(또는 엑셀 파일) → 등록.
+7. **명렬표 + 측정 기록 등록**: 선생님 화면 → 명렬표·설정·일람표
+   - 팝스 시트 '전체(통합)' 탭을 통째로 복사해 붙여넣기 → 확인 → 등록 (명렬표·성별·팝스 기록 한 번에, 학번은 1-1반 1번 → 10101)
+   - 이어서 `학번, 1km` 두 열짜리 표(또는 CSV)를 올리면 1km 기록이 덧붙음
 
 ## 수업 운영
 

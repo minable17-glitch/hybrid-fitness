@@ -4,7 +4,7 @@
 //
 // 공용 태블릿 주의: 저장 RPC는 "지금 로그인한 학생"으로 저장되므로, 큐 항목마다 학번을 붙이고
 // 지금 로그인한 학생의 항목만 보낸다. (앞 학생의 미전송 항목은 그 학생이 이 기기로 다시 로그인하면 전송됨)
-import { saveDiag, saveMeasure, saveWeak, saveDesign, markLibraryViewed, logActivity } from './api';
+import { saveDiag, saveWeak, saveDesign, markLibraryViewed, logActivity } from './api';
 
 const STORAGE_KEY = 'hybrid_pending_v1';
 let currentStudent = null;
@@ -67,7 +67,6 @@ export function myPendingCount() {
 async function saveOne(section, p) {
   switch (section) {
     case 'diag': return saveDiag(p.answers, p.rev);
-    case 'measure': return saveMeasure(p.vals, p.rev);
     case 'weak': return saveWeak(p.areas, p.reason, p.rev);
     case 'library': return markLibraryViewed();
     case 'design': return saveDesign(p.data, p.estMin, p.rev);

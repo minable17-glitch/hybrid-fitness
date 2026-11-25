@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AREAS, ANSWERS, MEASURES, RUN, MIN_REASON, TEXTBOOK_URL } from '../lib/content';
-import { validMeasure, diagSums, fmtSec, fmtNum } from '../lib/design';
+import { diagSums, fmtSec, fmtNum } from '../lib/design';
 import { getSchoolAverages } from '../lib/api';
 
 function Closed({ what }) {
@@ -45,32 +45,26 @@ export function DiagStep({ answers, editable, onChange, next }) {
 }
 
 /* ── 3. 간이측정 기록 ── */
-export function MeasureStep({ vals, run, editable, onChange, next }) {
+export function MeasureStep({ vals, run, next }) {
   return (
     <>
-      {!editable && <Closed what="측정 기록 입력" />}
       <div className="card">
-        <h2>간이측정 기록</h2>
-        <p className="muted" style={{ marginTop: 0 }}>체육 시간에 측정한 내 기록을 입력하세요. 친구와 비교하는 점수가 아니에요.</p>
+        <h2>내 측정 기록</h2>
+        <p className="muted" style={{ marginTop: 0 }}>체육 시간에 측정한 팝스 기록이에요. 선생님이 등록한 값이라 직접 입력하지 않아요. 친구와 비교하는 점수가 아니에요.</p>
         {MEASURES.map((m) => {
-          const v = vals[m.key];
-          const bad = v !== '' && v != null && !validMeasure(m, v);
+          const v = vals?.[m.key];
           return (
-            <div className="meas" key={m.key}>
+            <div className="meas" key={m.key} data-m={m.key}>
               <div><b>{m.name}</b><div className="muted">{m.note}</div></div>
-              <div className="unit field" style={{ margin: 0 }}>
-                <input type="number" inputMode="decimal" step={m.step} min={m.min} max={m.max} aria-label={m.name}
-                  className={bad ? 'bad' : ''} disabled={!editable} value={v ?? ''} data-m={m.key}
-                  onChange={(e) => onChange({ ...vals, [m.key]: e.target.value === '' ? '' : Number(e.target.value) })} />
-                <span>{m.unit}</span>
-              </div>
+              <div><b>{v == null || v === '' ? <span className="muted">기록 없음</span> : `${fmtNum(v)}${m.unit}`}</b></div>
             </div>
           );
         })}
-        <div className="meas">
-          <div><b>1km 달리기</b><div className="muted">선생님이 입력한 기록 (직접 입력하지 않아요)</div></div>
-          <div><b>{run?.sec ? fmtSec(run.sec) : <span className="muted">아직 없음</span>}</b></div>
+        <div className="meas" data-m="run1km">
+          <div><b>1km 달리기</b><div className="muted">수행평가 기록</div></div>
+          <div><b>{run?.sec ? fmtSec(run.sec) : <span className="muted">기록 없음</span>}</b></div>
         </div>
+        <p className="muted" style={{ marginBottom: 0 }}>기록이 틀리거나 비어 있으면 선생님께 말씀드리세요.</p>
       </div>
       {next}
     </>
@@ -101,7 +95,7 @@ function Position({ name, mine, avgInfo, unit, isRun }) {
     <div className="mrow">
       <b>{name}</b> {show(mine)} · <b style={{ color: 'var(--primary)' }}>{word}</b>
       <div className="pos" aria-hidden="true"><div className="track" /><div className="avg" /><div className="me" style={{ left: `${left}%` }} /></div>
-      <div className="pos-lb"><span>{isRun ? '느림' : '낮음'}</span><span>학교 평균 {show(avg)}</span><span>{isRun ? '빠름' : '높음'}</span></div>
+      <div className="pos-lb"><span>{isRun ? '느림' : '낮음'}</span><span>{avgInfo.scope || '학교 평균'} {show(avg)}</span><span>{isRun ? '빠름' : '높음'}</span></div>
     </div>
   );
 }
@@ -134,7 +128,7 @@ export function ResultStep({ answers, vals, run, weak, editable, submitted, onCh
     <>
       <div className="card">
         <h2>내 진단 결과</h2>
-        <p className="muted" style={{ marginTop: 0 }}>왼쪽은 내가 느끼는 일상 속 어려움, 오른쪽은 측정 기록이 학교 평균에서 어디쯤인지예요. 순위나 점수는 없어요.</p>
+        <p className="muted" style={{ marginTop: 0 }}>왼쪽은 내가 느끼는 일상 속 어려움, 오른쪽은 측정 기록이 같은 성별 1학년 평균에서 어디쯤인지예요. 순위나 점수는 없어요.</p>
         {err && <div className="msg msg-warn">{err}</div>}
         {!avg && !err && <p className="muted">학교 평균을 불러오는 중…</p>}
         {sums.map((s) => {
@@ -154,7 +148,7 @@ export function ResultStep({ answers, vals, run, weak, editable, submitted, onCh
           );
         })}
         <div className="area">
-          <div><h3>그 밖의 체력</h3><div className="muted">근력·유연성</div></div>
+          <div><h3>유연성</h3><div className="muted">자가진단 부위에는 없는 체력</div></div>
           <div>{measureFor('etc')}</div>
         </div>
       </div>

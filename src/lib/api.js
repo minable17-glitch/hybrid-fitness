@@ -41,7 +41,6 @@ export const getMyState = () => rpc('get_my_state');
 export const getSettingsPublic = () => rpc('get_settings_public');
 export const getSchoolAverages = () => rpc('get_school_averages');
 export const saveDiag = (answers, rev) => rpc('save_diag', { p_answers: answers, p_rev: rev });
-export const saveMeasure = (vals, rev) => rpc('save_measure', { p_vals: vals, p_rev: rev });
 export const saveWeak = (areas, reason, rev) => rpc('save_weak', { p_areas: areas, p_reason: reason, p_rev: rev });
 export const markLibraryViewed = () => rpc('mark_library_viewed');
 export const saveDesign = (data, estMin, rev) => rpc('save_design', { p_data: data, p_est: estMin, p_rev: rev });

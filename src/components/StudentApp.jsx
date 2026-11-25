@@ -6,7 +6,7 @@ import {
 } from '../lib/offlineQueue';
 import { useOnlineStatus } from '../lib/useOnlineStatus';
 import { QUESTION_COUNT } from '../lib/content';
-import { normalizeDesign, diagDone, measureDone, weakDone, estimate, clsLabel } from '../lib/design';
+import { normalizeDesign, diagDone, weakDone, estimate, clsLabel } from '../lib/design';
 import { DiagStep, MeasureStep, ResultStep, LibraryStep } from './StudentSteps';
 import DesignStep from './DesignStep';
 import { Modal, useToast, useHeaderHeight } from './ui';
@@ -41,8 +41,6 @@ function fromServer(st) {
 function mergePending(s) {
   const d = getPending('diag');
   if (d && d.rev > s.diag.rev) s.diag = { answers: d.answers, rev: d.rev };
-  const m = getPending('measure');
-  if (m && m.rev > s.measure.rev) s.measure = { vals: m.vals, rev: m.rev };
   const w = getPending('weak');
   if (w && w.rev > s.weak.rev) s.weak = { areas: w.areas, reason: w.reason, rev: w.rev };
   if (getPending('library')) s.library = { viewed: true, rev: 1 };
@@ -54,7 +52,6 @@ function mergePending(s) {
 function payloadOf(section, v, runSec) {
   switch (section) {
     case 'diag': return { answers: v.answers, rev: v.rev };
-    case 'measure': return { vals: v.vals, rev: v.rev };
     case 'weak': return { areas: v.areas, reason: v.reason, rev: v.rev };
     case 'design': return { data: v.data, estMin: Math.round(estimate(v.data, runSec).total / 6) / 10, rev: v.rev };
     default: return { rev: v.rev };
@@ -140,7 +137,7 @@ export default function StudentApp({ student, onLogout }) {
   const submitted = state?.design.status === '제출';
   const done = state && {
     diag: diagDone(state.diag.answers),
-    measure: measureDone(state.measure.vals),
+    measure: diagDone(state.diag.answers),   // 측정 기록은 선생님이 등록 → 학생은 보기만
     result: weakDone(state.weak),
     library: state.library.viewed,
     design: submitted,
@@ -249,8 +246,7 @@ export default function StudentApp({ student, onLogout }) {
             onChange={(answers) => commit('diag', { answers })} next={nextBtn('measure', '측정 기록')} />
         )}
         {step === 'measure' && (
-          <MeasureStep vals={state.measure.vals} run={state.run} editable={s.diagOpen}
-            onChange={(vals) => commit('measure', { vals })} next={nextBtn('result', '진단 결과')} />
+          <MeasureStep vals={state.measure.vals} run={state.run} next={nextBtn('result', '진단 결과')} />
         )}
         {step === 'result' && (
           <ResultStep answers={state.diag.answers} vals={state.measure.vals} run={state.run} weak={state.weak}

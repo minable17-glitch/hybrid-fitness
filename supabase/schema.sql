@@ -49,9 +49,11 @@ create table if not exists roster (
   name text not null,
   run_text text,                        -- 1km 기록 원문 (예: '4:35')
   run_sec int,                          -- 1km 기록 (초)
+  sex text,                             -- '남' | '여' (학교 평균을 같은 성별끼리 비교)
   auth_user_id uuid,
   created_at timestamptz not null default now()
 );
+alter table roster add column if not exists sex text;
 create index if not exists idx_roster_auth on roster(auth_user_id);
 
 -- rev: 학생 기기에서 마지막으로 고친 시각(ms). 늦게 도착한 옛 저장이 최신본을 덮지 못하게 비교한다.
@@ -65,7 +67,7 @@ create table if not exists diagnoses (
 
 create table if not exists measures (
   student_no text primary key references roster(student_no) on delete cascade on update cascade,
-  vals jsonb not null default '{}',     -- {pushup, plank, jump, squat, weight, sitreach, grip}
+  vals jsonb not null default '{}',     -- 팝스 기록, 교사가 명렬표와 함께 불러옴 {shuttle, sitreach, grip, jump, pushup, plank, pull}
   done boolean not null default false,
   rev bigint not null default 0,
   updated_at timestamptz not null default now()
@@ -236,7 +238,9 @@ begin
 end;
 $$;
 
-create or replace function compute_averages() returns jsonb
+-- 측정 항목별 평균. p_sex 가 있으면 그 성별만 (null 이면 1학년 전체)
+drop function if exists compute_averages();
+create or replace function compute_averages(p_sex text default null) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare
   out jsonb := '{}';
@@ -246,17 +250,39 @@ declare
   o numeric;
 begin
   select avg_overrides into ov from app_settings where id = 1;
-  foreach k in array array['pushup', 'plank', 'jump', 'squat', 'weight', 'sitreach', 'grip', 'run1km'] loop
+  foreach k in array array['shuttle', 'sitreach', 'grip', 'jump', 'pushup', 'plank', 'pull', 'run1km'] loop
     if k = 'run1km' then
-      select avg(run_sec), stddev_samp(run_sec), count(run_sec) into a, sd, n from roster where run_sec is not null;
+      select avg(run_sec), stddev_samp(run_sec), count(run_sec) into a, sd, n
+      from roster where run_sec is not null and (p_sex is null or sex = p_sex);
     else
-      select avg((vals ->> k)::numeric), stddev_samp((vals ->> k)::numeric), count(*) into a, sd, n
-      from measures where jsonb_typeof(vals -> k) = 'number';
+      select avg((m.vals ->> k)::numeric), stddev_samp((m.vals ->> k)::numeric), count(*) into a, sd, n
+      from measures m join roster r on r.student_no = m.student_no
+      where jsonb_typeof(m.vals -> k) = 'number' and (p_sex is null or r.sex = p_sex);
     end if;
     o := try_num(ov ->> k);
     out := out || jsonb_build_object(k, jsonb_build_object(
       'auto', round(a, 2), 'sd', round(sd, 2), 'n', n,
       'avg', round(coalesce(o, a), 2), 'source', case when o is not null then '기준값' else '자동' end));
+  end loop;
+  return out;
+end;
+$$;
+
+-- 한 학생이 비교할 평균: 같은 성별 기록이 5명 이상이면 그 성별 평균, 아니면 1학년 전체 평균
+create or replace function averages_for(p_sex text) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  a_all jsonb := compute_averages(null);
+  a_sex jsonb := case when p_sex in ('남', '여') then compute_averages(p_sex) end;
+  out jsonb := '{}';
+  k text;
+begin
+  for k in select jsonb_object_keys(a_all) loop
+    if a_sex is not null and coalesce((a_sex -> k ->> 'n')::int, 0) >= 5 and a_sex -> k ->> 'source' = '자동' then
+      out := out || jsonb_build_object(k, (a_sex -> k) || jsonb_build_object('scope', p_sex || '학생 평균'));
+    else
+      out := out || jsonb_build_object(k, (a_all -> k) || jsonb_build_object('scope', case when a_all -> k ->> 'source' = '기준값' then '기준값' else '1학년 평균' end));
+    end if;
   end loop;
   return out;
 end;
@@ -281,7 +307,8 @@ $$;
 
 revoke execute on function me_student() from public, anon, authenticated;
 revoke execute on function assert_teacher() from public, anon, authenticated;
-revoke execute on function compute_averages() from public, anon, authenticated;
+revoke execute on function compute_averages(text) from public, anon, authenticated;
+revoke execute on function averages_for(text) from public, anon, authenticated;
 revoke execute on function recompute_score(text) from public, anon, authenticated;
 
 -- ── 교사 계정 ────────────────────────────────────────────
@@ -384,13 +411,13 @@ grant execute on function get_my_state() to anon, authenticated;
 create or replace function get_school_averages() returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare
-  a jsonb := compute_averages();
+  me roster%rowtype := me_student();
+  a jsonb := averages_for(me.sex);
   out jsonb := '{}';
   k text;
 begin
-  perform me_student();
   for k in select jsonb_object_keys(a) loop
-    out := out || jsonb_build_object(k, jsonb_build_object('avg', a -> k -> 'avg', 'sd', a -> k -> 'sd'));
+    out := out || jsonb_build_object(k, jsonb_build_object('avg', a -> k -> 'avg', 'sd', a -> k -> 'sd', 'scope', a -> k -> 'scope'));
   end loop;
   return out;
 end;
@@ -420,31 +447,8 @@ end;
 $$;
 grant execute on function save_diag(int[], bigint) to anon, authenticated;
 
-create or replace function save_measure(p_vals jsonb, p_rev bigint) returns jsonb
-language plpgsql security definer set search_path = public as $$
-declare
-  me roster%rowtype := me_student();
-  clean jsonb := '{}';
-  k text;
-  ok boolean := true;
-begin
-  if not (select diag_open from app_settings where id = 1) then
-    return jsonb_build_object('ok', false, 'code', 'CLOSED', 'settings', settings_public());
-  end if;
-  foreach k in array array['pushup', 'plank', 'jump', 'squat', 'weight', 'sitreach', 'grip'] loop
-    if jsonb_typeof(p_vals -> k) = 'number' and (p_vals ->> k)::numeric between -40 and 900 then
-      clean := clean || jsonb_build_object(k, p_vals -> k);
-    else
-      ok := false;
-    end if;
-  end loop;
-  insert into measures (student_no, vals, done, rev, updated_at) values (me.student_no, clean, ok, p_rev, now())
-  on conflict (student_no) do update set vals = excluded.vals, done = excluded.done, rev = excluded.rev, updated_at = now()
-  where measures.rev <= excluded.rev;
-  return jsonb_build_object('ok', true, 'settings', settings_public());
-end;
-$$;
-grant execute on function save_measure(jsonb, bigint) to anon, authenticated;
+-- 측정 기록은 학생이 입력하지 않고 교사가 명렬표와 함께 불러온다 (admin_import_roster)
+drop function if exists save_measure(jsonb, bigint);
 
 create or replace function save_weak(p_areas text[], p_reason text, p_rev bigint) returns jsonb
 language plpgsql security definer set search_path = public as $$
@@ -572,7 +576,7 @@ begin
     'students', coalesce((
       select jsonb_agg(jsonb_build_object(
         'studentNo', r.student_no, 'className', r.class_name, 'number', r.number, 'name', r.name,
-        'runText', r.run_text, 'runSec', r.run_sec,
+        'runText', r.run_text, 'runSec', r.run_sec, 'sex', r.sex,
         'diag', coalesce(d.done, false), 'measure', coalesce(m.done, false), 'weak', coalesce(w.done, false),
         'designStatus', g.status, 'submittedAt', g.submitted_at, 'estMin', g.est_min,
         'leaves', coalesce(l.leaves, 0), 'leaveSec', coalesce(l.leave_sec, 0), 'sus', coalesce(l.sus, 0), 'maxDelta', coalesce(l.max_delta, 0),
@@ -595,7 +599,8 @@ begin
     ), '[]'::jsonb),
     'settings', (select jsonb_build_object('diagOpen', diag_open, 'designOpen', design_open, 'suspiciousChars', suspicious_chars,
                    'avgOverrides', avg_overrides, 'signupCode', signup_code) from app_settings where id = 1),
-    'averages', compute_averages());
+    'averages', compute_averages(null),
+    'averagesBySex', jsonb_build_object('남', compute_averages('남'), '여', compute_averages('여')));
 end;
 $$;
 grant execute on function admin_overview() to anon, authenticated;
@@ -610,7 +615,7 @@ begin
   if not found then raise exception '명렬표에 없는 학번이에요'; end if;
   return jsonb_build_object(
     'student', jsonb_build_object('studentNo', r.student_no, 'name', r.name, 'className', r.class_name, 'number', r.number,
-                 'runText', r.run_text, 'runSec', r.run_sec),
+                 'runText', r.run_text, 'runSec', r.run_sec, 'sex', r.sex),
     'diag', (select jsonb_build_object('answers', answers, 'done', done, 'updatedAt', updated_at) from diagnoses where student_no = r.student_no),
     'measure', (select jsonb_build_object('vals', vals, 'done', done) from measures where student_no = r.student_no),
     'weak', (select jsonb_build_object('areas', areas, 'reason', reason, 'done', done, 'updatedAt', updated_at) from weaknesses where student_no = r.student_no),
@@ -619,7 +624,7 @@ begin
     'score', (select to_jsonb(s) - 'student_no' from scores s where student_no = r.student_no),
     'logs', coalesce((select jsonb_agg(jsonb_build_object('kind', kind, 'startedAt', started_at, 'endedAt', ended_at, 'seconds', seconds,
                'field', field, 'delta', delta, 'note', note) order by started_at, id) from activity_logs where student_no = r.student_no), '[]'::jsonb),
-    'averages', compute_averages());
+    'averages', averages_for(r.sex));
 end;
 $$;
 grant execute on function admin_student_detail(text) to anon, authenticated;
@@ -692,7 +697,9 @@ end;
 $$;
 grant execute on function admin_save_settings(jsonb) to anon, authenticated;
 
--- p_rows: [{studentNo, className, number, name, runText, runSec}]  — 학번 기준으로 추가/수정 (기존 기록은 유지)
+-- p_rows: [{studentNo, className, number, name, sex?, runText, runSec, vals?}]  — 학번 기준으로 추가/수정
+-- vals(팝스 측정 기록)가 있으면 그 학생의 측정 기록을 그 값으로 바꾼다. 자가진단·설계도 등 다른 기록은 그대로.
+-- 이름이 빈 줄은 '덧붙이기': 이미 있는 학번에 1km·측정 기록만 더한다 (예: 1km 기록 파일).
 create or replace function admin_import_roster(p_rows jsonb) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
@@ -700,21 +707,51 @@ declare
   v_no text;
   ins int := 0;
   upd int := 0;
+  skipped text[] := '{}';
 begin
   perform assert_teacher();
   for e in select value from jsonb_array_elements(coalesce(p_rows, '[]')) loop
     v_no := regexp_replace(coalesce(e ->> 'studentNo', ''), '\s', '', 'g');
+    -- 이름 없이 학번 + 기록만 있는 줄: 이미 있는 학생의 1km·측정 기록만 덧붙임
+    if v_no <> '' and coalesce(trim(e ->> 'name'), '') = '' and exists (select 1 from roster where student_no = v_no) then
+      if try_num(e ->> 'runSec') is not null then
+        update roster set run_text = nullif(trim(e ->> 'runText'), ''), run_sec = try_num(e ->> 'runSec')::int where student_no = v_no;
+      end if;
+      if jsonb_typeof(e -> 'vals') = 'object' then
+        insert into measures (student_no, vals, done, rev, updated_at)
+        values (v_no, (select coalesce(jsonb_object_agg(key, value), '{}') from jsonb_each(e -> 'vals')
+                       where key in ('shuttle', 'sitreach', 'grip', 'jump', 'pushup', 'plank', 'pull') and jsonb_typeof(value) = 'number'),
+                true, (extract(epoch from now()) * 1000)::bigint, now())
+        on conflict (student_no) do update set vals = measures.vals || excluded.vals, done = true, rev = excluded.rev, updated_at = now();
+      end if;
+      upd := upd + 1;
+      continue;
+    end if;
+    if v_no <> '' and coalesce(trim(e ->> 'name'), '') = '' then
+      skipped := skipped || v_no;   -- 명렬표에 없는 학번의 덧붙이기 줄은 건너뜀
+      continue;
+    end if;
     if v_no = '' or coalesce(trim(e ->> 'name'), '') = '' or coalesce(trim(e ->> 'className'), '') = '' then
       raise exception '학번·이름·반이 비어 있는 줄이 있어요: %', e::text;
     end if;
     if exists (select 1 from roster where student_no = v_no) then upd := upd + 1; else ins := ins + 1; end if;
-    insert into roster (student_no, class_name, number, name, run_text, run_sec)
+    insert into roster (student_no, class_name, number, name, sex, run_text, run_sec)
     values (v_no, trim(e ->> 'className'), try_num(e ->> 'number')::int, trim(e ->> 'name'),
+            case when trim(e ->> 'sex') in ('남', '여') then trim(e ->> 'sex') end,
             nullif(trim(e ->> 'runText'), ''), try_num(e ->> 'runSec')::int)
     on conflict (student_no) do update set class_name = excluded.class_name, number = excluded.number,
-      name = excluded.name, run_text = excluded.run_text, run_sec = excluded.run_sec;
+      name = excluded.name, sex = coalesce(excluded.sex, roster.sex),
+      -- 1km 칸이 없는 표(예: 팝스 시트)를 다시 불러와도 이미 등록한 1km 기록은 지우지 않음
+      run_text = coalesce(excluded.run_text, roster.run_text), run_sec = coalesce(excluded.run_sec, roster.run_sec);
+    if jsonb_typeof(e -> 'vals') = 'object' then
+      insert into measures (student_no, vals, done, rev, updated_at)
+      values (v_no, (select coalesce(jsonb_object_agg(key, value), '{}') from jsonb_each(e -> 'vals')
+                     where key in ('shuttle', 'sitreach', 'grip', 'jump', 'pushup', 'plank', 'pull') and jsonb_typeof(value) = 'number'),
+              true, (extract(epoch from now()) * 1000)::bigint, now())
+      on conflict (student_no) do update set vals = excluded.vals, done = true, rev = excluded.rev, updated_at = now();
+    end if;
   end loop;
-  return jsonb_build_object('inserted', ins, 'updated', upd);
+  return jsonb_build_object('inserted', ins, 'updated', upd, 'skipped', to_jsonb(skipped));
 end;
 $$;
 grant execute on function admin_import_roster(jsonb) to anon, authenticated;

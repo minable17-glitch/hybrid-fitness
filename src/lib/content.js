@@ -31,14 +31,16 @@ export const QUESTION_COUNT = AREAS.reduce((n, a) => n + a.questions.length, 0);
 export const ANSWERS = ['쉽다', '가끔 힘듦', '자주 힘듦'];
 export const areaName = (key) => AREAS.find((a) => a.key === key)?.name || key;
 
+// 측정 기록: 학생이 입력하지 않고, 선생님이 팝스 시트를 명렬표와 함께 불러와 채운다 (빈 값은 '기록 없음').
+// key 는 schema.sql 의 compute_averages / admin_import_roster 와 맞춰야 함
 export const MEASURES = [
-  { key: 'pushup', name: '푸시업', unit: '회', note: '30초 동안 한 횟수', area: 'push', min: 0, max: 150, step: 1 },
-  { key: 'plank', name: '플랭크', unit: '초', note: '바른 자세로 버틴 시간', area: 'core', min: 0, max: 900, step: 1 },
-  { key: 'jump', name: '제자리멀리뛰기', unit: 'cm', note: '가장 좋은 기록', area: 'legPow', min: 0, max: 400, step: 1 },
-  { key: 'squat', name: '스쿼트', unit: '회', note: '30초 동안 한 횟수', area: 'legEnd', min: 0, max: 150, step: 1 },
-  { key: 'weight', name: '무게 다루기', unit: 'kg', note: '바른 자세로 5회 들 수 있는 덤벨 무게', area: 'etc', min: 0, max: 60, step: 0.5 },
-  { key: 'sitreach', name: '좌전굴', unit: 'cm', note: '앉아 윗몸 앞으로 굽히기', area: 'etc', min: -40, max: 60, step: 0.1 },
-  { key: 'grip', name: '악력', unit: 'kg', note: '잘 쓰는 손 기준', area: 'pull', min: 0, max: 100, step: 0.1 },
+  { key: 'shuttle', name: '셔틀런', unit: '회', note: '왕복오래달리기 (팝스)', area: 'cardio' },
+  { key: 'pushup', name: '푸시업', unit: '회', note: '팝스 측정', area: 'push' },
+  { key: 'pull', name: '당기기', unit: 'kg', note: '당기기 무게', area: 'pull' },
+  { key: 'grip', name: '악력', unit: 'kg', note: '오른손·왼손 중 높은 기록', area: 'pull' },
+  { key: 'plank', name: '플랭크', unit: '초', note: '버틴 시간', area: 'core' },
+  { key: 'jump', name: '제자리멀리뛰기', unit: 'cm', note: '두 번 중 좋은 기록', area: 'legPow' },
+  { key: 'sitreach', name: '유연성', unit: 'cm', note: '앉아 윗몸 앞으로 굽히기, 두 번 중 좋은 기록', area: 'etc' },
 ];
 // 동작 라이브러리 화면에 거는 3D 교과서 링크 (squat-coach 저장소의 움직임 교과서)
 export const TEXTBOOK_URL = 'https://minable17-glitch.github.io/squat-coach/textbook/';

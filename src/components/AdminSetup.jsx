@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { adminSaveSettings, adminImportRoster, adminDeleteStudent } from '../lib/api';
 import { MEASURES, RUN, SCORE_ITEMS } from '../lib/content';
 import { parseRun, fmtSec, fmtNum, clsLabel } from '../lib/design';
+import { parseRoster } from '../lib/roster';
 import { Modal } from './ui';
 
 /* ── 학교 평균 ── */
@@ -33,18 +34,19 @@ export function AdminAverages({ ov, setOv, showToast }) {
   return (
     <div className="card">
       <h2>학교 평균</h2>
-      <p className="muted" style={{ marginTop: 0 }}>학생 기록이 쌓이면 자동으로 계산돼요. 기준값을 넣으면 자동 평균 대신 그 값을 써요. 1km는 4:35 또는 초.</p>
+      <p className="muted" style={{ marginTop: 0 }}>등록한 측정 기록으로 자동 계산돼요. 학생은 <b>같은 성별 평균</b>과 비교해요(그 성별 기록이 5명 미만이면 1학년 전체). 기준값을 넣으면 성별과 상관없이 그 값을 써요. 1km는 4:35 또는 초.</p>
       <div className="tbl-wrap"><table>
-        <thead><tr><th>항목</th><th className="c">자동 평균</th><th className="c">인원</th><th>기준값 (선택)</th><th className="c">지금 쓰는 값</th></tr></thead>
+        <thead><tr><th>항목</th><th className="c">남학생 평균</th><th className="c">여학생 평균</th><th className="c">1학년 전체</th><th>기준값 (선택)</th></tr></thead>
         <tbody>
           {rows.map((r) => {
             const a = ov.averages[r.key] || {};
             return (
               <tr key={r.key}>
-                <td>{r.name}</td><td className="c">{f(r, a.auto)}</td><td className="c">{a.n || 0}명</td>
+                <td>{r.name}</td>
+                {['남', '여'].map((sx) => { const b = ov.averagesBySex?.[sx]?.[r.key] || {}; return <td className="c" key={sx}>{f(r, b.auto)} <span className="muted">({b.n || 0}명)</span></td>; })}
+                <td className="c">{f(r, a.auto)} <span className="muted">({a.n || 0}명)</span></td>
                 <td><input className="inp" style={{ width: 130, padding: '6px 8px' }} placeholder="비우면 자동" value={draft[r.key]}
                   onChange={(e) => setDraft({ ...draft, [r.key]: e.target.value })} /></td>
-                <td className="c">{f(r, a.avg)} {a.source === '기준값' && <span className="muted">(기준값)</span>}</td>
               </tr>
             );
           })}
@@ -53,36 +55,6 @@ export function AdminAverages({ ov, setOv, showToast }) {
       <div className="row end" style={{ marginTop: 12 }}><button className="btn btn-primary" type="button" onClick={save}>기준값 저장</button></div>
     </div>
   );
-}
-
-/* ── 명렬표 읽기: 붙여넣기(탭/쉼표) 또는 엑셀 파일. 머리글이 있으면 열 이름으로, 없으면 반·번호·학번·이름·1km 순서 ── */
-function parseRoster(table) {
-  const rows = table.map((r) => r.map((c) => String(c ?? '').trim())).filter((r) => r.some((c) => c));
-  if (!rows.length) return { rows: [], problems: ['내용이 없어요'] };
-  let idx = { cls: 0, no: 1, sno: 2, name: 3, run: 4 };
-  let start = 0;
-  const h = rows[0];
-  if (h.some((c) => c.includes('학번'))) {
-    const find = (re) => h.findIndex((c) => re.test(c));
-    idx = { cls: find(/반/), no: find(/번호/), sno: find(/학번/), name: find(/이름|성명/), run: find(/1\s*km|달리기|오래/i) };
-    start = 1;
-  }
-  const out = [];
-  const problems = [];
-  const seen = new Set();
-  rows.slice(start).forEach((r, i) => {
-    const line = `${i + start + 1}행`;
-    const get = (k) => (idx[k] >= 0 ? r[idx[k]] || '' : '');
-    const studentNo = get('sno').replace(/\s/g, '');
-    const runText = get('run');
-    const item = { className: get('cls').replace(/반$/, ''), number: Number(get('no')) || null, studentNo, name: get('name'), runText, runSec: parseRun(runText) };
-    if (!studentNo || !item.name || !item.className) { problems.push(`${line}: 반·학번·이름 중 빈칸`); return; }
-    if (seen.has(studentNo)) { problems.push(`${line}: 학번 ${studentNo} 중복`); return; }
-    if (runText && item.runSec == null) problems.push(`${line}: 1km 기록 형식 확인 (예: 4:35) — 비워서 등록`);
-    seen.add(studentNo);
-    out.push(item);
-  });
-  return { rows: out, problems };
 }
 
 async function exportScores(students) {
@@ -134,7 +106,7 @@ export function AdminSetup({ ov, setOv, allStudents, refresh, showToast }) {
     setBusy(true);
     try {
       const r = await adminImportRoster(parsed.rows);
-      showToast(`새로 ${r.inserted}명, 수정 ${r.updated}명`);
+      showToast(`새로 ${r.inserted}명, 수정 ${r.updated}명${r.skipped?.length ? `, 명렬표에 없는 학번 ${r.skipped.length}개 건너뜀(${r.skipped.join(', ')})` : ''}`);
       setParsed(null);
       setPaste('');
       await refresh();
@@ -176,7 +148,15 @@ export function AdminSetup({ ov, setOv, allStudents, refresh, showToast }) {
         <p className="muted" style={{ marginTop: 0 }}>
           {Object.keys(counts).sort((a, b) => String(a).localeCompare(String(b), 'ko', { numeric: true })).map((c) => `${clsLabel(c)} ${counts[c]}명`).join(' · ') || '등록된 학생 없음'}
         </p>
-        <p className="muted">스프레드시트에서 <b>반 · 번호 · 학번 · 이름 · 1km 기록</b> 열을 복사해 붙여넣거나 엑셀 파일을 올리세요. 학번이 같으면 고쳐지고, 기존 기록은 그대로 남아요. 로그인은 이 명렬표와 정확히 일치해야 해요.</p>
+        <div className="muted">
+          <p style={{ marginTop: 0 }}>스프레드시트에서 표를 통째로 복사해 붙여넣거나 엑셀·CSV 파일을 올리세요. 머리글(첫 줄)을 보고 열을 알아서 찾아요.</p>
+          <ul style={{ margin: '0 0 8px', paddingLeft: 20 }}>
+            <li><b>팝스 시트 '전체(통합)' 탭 그대로</b> → 명렬표 + 측정 기록(셔틀런·푸시업·당기기·악력·플랭크·멀리뛰기·유연성)을 한 번에 등록. 학번은 반·번호로 만들어요 (1-1반 1번 → 10101).</li>
+            <li><b>기본 명렬표</b>: 반 · 번호 · 학번 · 이름 · 성별 · 1km 기록</li>
+            <li><b>학번 + 1km(또는 측정 기록)만</b> 있는 표 → 이미 등록된 학생에게 기록만 더해요.</li>
+          </ul>
+          <p style={{ marginTop: 0 }}>학번이 같으면 고쳐지고, 자가진단·설계도·점수는 그대로 남아요. 빈 기록은 무시해요. 학생 로그인은 이 명렬표의 학번·이름과 정확히 일치해야 해요.</p>
+        </div>
         <div className="field"><textarea id="rpaste" rows={5} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={'반\t번호\t학번\t이름\t1km\n1\t1\t10101\t홍길동\t4:35'} /></div>
         <div className="row">
           <button className="btn btn-outline" type="button" disabled={!paste.trim()} onClick={readPaste} id="rread">붙여넣은 내용 확인</button>
@@ -185,7 +165,11 @@ export function AdminSetup({ ov, setOv, allStudents, refresh, showToast }) {
         {parsed && (
           <div style={{ marginTop: 12 }}>
             {parsed.problems.length > 0 && <div className="msg msg-warn">{parsed.problems.map((p) => <div key={p}>{p}</div>)}</div>}
-            <div className="msg msg-ok" id="rmsg">{parsed.rows.length}명을 읽었어요. 앞의 3명: {parsed.rows.slice(0, 3).map((r) => `${clsLabel(r.className)} ${r.number ?? ''}번 ${r.name}(${r.studentNo}${r.runSec ? `, ${fmtSec(r.runSec)}` : ''})`).join(', ')}</div>
+            <div className="msg msg-ok" id="rmsg">
+              {parsed.rows.filter((r) => !r.appendOnly).length > 0 && <>{parsed.rows.filter((r) => !r.appendOnly).length}명을 읽었어요. 앞의 3명: {parsed.rows.filter((r) => !r.appendOnly).slice(0, 3).map((r) => `${clsLabel(r.className)} ${r.number ?? ''}번 ${r.name}(${r.studentNo}${r.sex ? `, ${r.sex}` : ''}${r.runSec ? `, 1km ${fmtSec(r.runSec)}` : ''})`).join(', ')}<br /></>}
+              {parsed.rows.some((r) => r.appendOnly) && <>기록 덧붙이기 {parsed.rows.filter((r) => r.appendOnly).length}명 (이미 등록된 학번에만 들어가요)<br /></>}
+              {parsed.hasMeasures && <>측정 기록: {MEASURES.filter((m) => parsed.measureKeys.includes(m.key)).map((m) => `${m.name} ${parsed.rows.filter((r) => r.vals?.[m.key] != null).length}명`).join(' · ')}</>}
+            </div>
             <button className="btn btn-primary" type="button" disabled={busy || !parsed.rows.length} onClick={upload} id="rupload">{busy ? '등록 중…' : `${parsed.rows.length}명 등록`}</button>
           </div>
         )}

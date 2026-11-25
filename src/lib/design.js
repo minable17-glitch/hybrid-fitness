@@ -1,5 +1,5 @@
 // 설계도·채점 규칙 (순수 함수). 서버(schema.sql)의 design_errors / design_convert / perf_convert 와 같은 규칙.
-import { MOVE_COUNT, MOVE_AREAS, RUN_WHERE, REP_SEC, DEFAULT_RUN_PACE, QUESTION_COUNT, AREAS, MEASURES, MIN_REASON } from './content';
+import { MOVE_COUNT, MOVE_AREAS, RUN_WHERE, REP_SEC, DEFAULT_RUN_PACE, QUESTION_COUNT, AREAS, MIN_REASON } from './content';
 
 export function emptyDesign() {
   return {
@@ -82,8 +82,6 @@ export function perfConvert(p1, p2) {
 
 /* 단계 완료 판정 (서버도 같은 기준으로 done 을 저장) */
 export const diagDone = (answers) => answers.length === QUESTION_COUNT && answers.every((v) => v >= 1 && v <= 3);
-export const validMeasure = (m, v) => v !== '' && v != null && Number.isFinite(Number(v)) && Number(v) >= m.min && Number(v) <= m.max;
-export const measureDone = (vals) => MEASURES.every((m) => validMeasure(m, vals[m.key]));
 export const weakDone = (w) => w.areas.length >= 1 && w.areas.length <= 2 && String(w.reason || '').trim().length >= MIN_REASON;
 
 /** 부위별 자가진단 합계 (3~9, 미응답이 있으면 null) */

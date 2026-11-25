@@ -78,7 +78,7 @@ function Detail({ d, onUnlock }) {
   return (
     <>
       <div className="card">
-        <h2>{clsLabel(d.student.className)} {d.student.number}번 {d.student.name} <span className="muted">{d.student.studentNo}</span></h2>
+        <h2>{clsLabel(d.student.className)} {d.student.number}번 {d.student.name} <span className="muted">{d.student.studentNo}{d.student.sex ? ` · ${d.student.sex}` : ''}</span></h2>
         <div className="row">설계도:
           {d.design?.status === '제출'
             ? <><span className="pill sub">제출</span> {fmtTime(d.design.submittedAt)} <button className="btn btn-danger btn-sm" type="button" id="unlock" onClick={onUnlock}>잠금 해제</button></>
@@ -90,7 +90,7 @@ function Detail({ d, onUnlock }) {
         <div className="stack">
           <div className="tbl-wrap"><table><thead><tr><th>부위</th><th className="c">자가진단 합계 (3~9, 높을수록 힘듦)</th></tr></thead>
             <tbody>{diagSums(answers).map((s) => <tr key={s.key}><td>{s.name}</td><td className="c">{s.sum ?? '-'}</td></tr>)}</tbody></table></div>
-          <div className="tbl-wrap"><table><thead><tr><th>측정</th><th className="c">기록</th><th className="c">학교 평균</th></tr></thead>
+          <div className="tbl-wrap"><table><thead><tr><th>측정</th><th className="c">기록</th><th className="c">비교 평균 (같은 성별)</th></tr></thead>
             <tbody>{MEASURES.map((m) => row(m.name, vals[m.key], m.key, m.unit))}{row('1km 달리기', d.student.runSec, 'run1km', '', true)}</tbody></table></div>
         </div>
       </div>
