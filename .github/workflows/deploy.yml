@@ -31,7 +31,7 @@ jobs:
           # publishable(anon) key는 공개용으로 설계된 값이라 안전하게 커밋에 포함합니다.
           # (실제 접근 제어는 데이터베이스의 Row Level Security 정책이 담당합니다.)
           VITE_SUPABASE_URL: https://sgzrffzwodmbjryscrrn.supabase.co
-          VITE_SUPABASE_ANON_KEY: YOUR-PUBLISHABLE-KEY
+          VITE_SUPABASE_ANON_KEY: sb_publishable_iw37cNMs6wsh1RX-4TPpkw_MuL7sO3g
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
