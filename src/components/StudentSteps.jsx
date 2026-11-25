@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AREAS, ANSWERS, MEASURES, RUN, MIN_REASON, areaName } from '../lib/content';
+import { AREAS, ANSWERS, MEASURES, RUN, MIN_REASON, TEXTBOOK_URL, areaName } from '../lib/content';
 import { validMeasure, diagSums, fmtSec, fmtNum } from '../lib/design';
 import { getSchoolAverages, listMoves } from '../lib/api';
 
@@ -202,6 +202,9 @@ export function LibraryStep({ weakAreas, viewed, onViewed, next }) {
       <div className="card">
         <h2>동작 라이브러리</h2>
         <p className="muted" style={{ marginTop: 0 }}>부위별 동작을 보고 배우는 곳이에요. 설계도에는 자동으로 들어가지 않으니, 이해한 내용을 내 말로 적어야 해요.</p>
+        <a className="btn btn-accent" href={TEXTBOOK_URL} target="_blank" rel="noopener noreferrer" id="textbook" style={{ margin: '4px 0 14px' }}>
+          3D 움직임 교과서 열기 ↗
+        </a>
         <div className="chips">
           <button type="button" className={`chip ${!area ? 'on' : ''}`} onClick={() => setArea('')}>전체</button>
           {AREAS.map((a) => (

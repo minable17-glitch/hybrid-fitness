@@ -40,6 +40,9 @@ export const MEASURES = [
   { key: 'sitreach', name: '좌전굴', unit: 'cm', note: '앉아 윗몸 앞으로 굽히기', area: 'etc', min: -40, max: 60, step: 0.1 },
   { key: 'grip', name: '악력', unit: 'kg', note: '잘 쓰는 손 기준', area: 'pull', min: 0, max: 100, step: 0.1 },
 ];
+// 동작 라이브러리 화면에 거는 3D 교과서 링크 (squat-coach 저장소의 움직임 교과서)
+export const TEXTBOOK_URL = 'https://minable17-glitch.github.io/squat-coach/textbook/';
+
 export const RUN = { key: 'run1km', name: '1km 달리기', area: 'cardio' };
 
 export const MOVE_COUNT = 5;   // 동작 5칸 고정, 칸마다 부위를 고름
