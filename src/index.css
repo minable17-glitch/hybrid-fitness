@@ -248,3 +248,10 @@ tr.click:hover td { background: #f6faf8; }
 .r-label { font-size: 13px; font-weight: 700; fill: var(--body-color); }
 .r-sub { font-size: 11px; font-weight: 600; fill: var(--body-muted); }
 .r-none { font-size: 11px; fill: #aab4b0; }
+.dist-top.low { color: #9a4210; background: var(--accent-soft); }
+
+/* 교사용 학생 화면 미리보기 */
+.preview-bg { position: fixed; inset: 0; z-index: 90; background: var(--bg); display: flex; flex-direction: column; --hdr: 0px; }
+.preview-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px; background: #1c2522; color: #fff; }
+.preview-bar span { flex: 1; font-size: 14px; opacity: 0.85; }
+.preview-scroll { flex: 1; overflow-y: auto; }

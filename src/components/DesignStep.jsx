@@ -53,9 +53,9 @@ function useGuard({ active, studentNo }) {
   }, [active, studentNo]);
 }
 
-export default function DesignStep({ studentNo, design, weak, runSec, settings, onChange, onSubmit, onSaveNow, showToast }) {
+export default function DesignStep({ studentNo, design, weak, runSec, settings, onChange, onSubmit, onSaveNow, showToast, preview }) {
   const submitted = design.status === '제출';
-  const editable = !!settings.designOpen && !submitted;
+  const editable = !preview && !!settings.designOpen && !submitted;
   const [introOk, setIntroOk] = useState(false);
   const [dialog, setDialog] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -153,7 +153,7 @@ export default function DesignStep({ studentNo, design, weak, runSec, settings, 
     <div ref={boxRef}>
       <div className="pin"><b>내가 고른 약점:</b> {weak.areas.map(areaName).join(', ') || '-'} · 약점 부위 동작 <b>{share.hit}/{share.total}칸</b><br /><b>이유:</b> {weak.reason}</div>
       {submitted && <div className="msg msg-ok">제출 완료 ({fmtTime(design.submittedAt)}). 고치려면 선생님께 잠금 해제를 요청하세요.</div>}
-      {!submitted && !settings.designOpen && <div className="msg msg-warn">지금은 설계도 작성 시간이 아니에요. 선생님이 열어 주면 작성할 수 있어요. (보는 것은 가능)</div>}
+      {!preview && !submitted && !settings.designOpen && <div className="msg msg-warn">지금은 설계도 작성 시간이 아니에요. 선생님이 열어 주면 작성할 수 있어요. (보는 것은 가능)</div>}
       <div className="card">
         <h2>하이브리드 체력 프로그램 설계도</h2>
         <p className="muted" style={{ margin: 0 }}>동작 5개를 직접 적고, 동작마다 부위를 골라요. 내 약점 부위와 같은 동작은 색이 칠해져요. 이 화면은 붙여넣기가 안 되고, 나갔다 오면 기록돼요.</p>
@@ -260,7 +260,7 @@ export default function DesignStep({ studentNo, design, weak, runSec, settings, 
         </div>
       </div>
 
-      {!submitted && (
+      {!submitted && !preview && (
         <div className="row end">
           <button className="btn btn-outline" type="button" disabled={!editable} onClick={onSaveNow} id="dsave">임시저장</button>
           <button className="btn btn-primary" type="button" disabled={!editable || busy} onClick={askSubmit} id="dsubmit">{busy ? '제출 중…' : '최종 제출'}</button>

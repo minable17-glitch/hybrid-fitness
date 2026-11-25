@@ -1,5 +1,5 @@
 import { MEASURES, AREAS } from '../lib/content';
-import { topPercent } from '../lib/stats';
+import { topPercent, rankLabel } from '../lib/stats';
 import { diagSums } from '../lib/design';
 
 /** 방사형 그래프. axes: [{label, value: 0~100 | null, sub?}] — 바깥(100)일수록 좋음, 점선 원 = 50 */
@@ -45,7 +45,7 @@ export function measureAxes(vals, runSec, dist) {
   return items.map((it) => {
     const values = (dist?.[it.key]?.values || []).map(Number);
     const top = it.mine == null || it.mine === '' ? null : topPercent(values, Number(it.mine), it.lowerBetter);
-    return { label: it.label, value: top == null ? null : Math.max(0, 100 - top), sub: top == null ? '' : `상위 ${top}%` };
+    return { label: it.label, value: top == null ? null : Math.max(0, 100 - top), sub: rankLabel(top) };
   });
 }
 

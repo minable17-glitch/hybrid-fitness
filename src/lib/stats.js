@@ -26,4 +26,10 @@ export function histogram(values, mine, bins = 10) {
   return { bars, lo, hi: lo + count * width, width };
 }
 
+/** 상위 50% 안쪽이면 '상위 n%', 아니면 '하위 m%' (상위 70% → 하위 31%) */
+export function rankLabel(top) {
+  if (top == null) return '';
+  return top <= 50 ? `상위 ${top}%` : `하위 ${Math.max(1, 101 - top)}%`;
+}
+
 export const mean = (values) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);

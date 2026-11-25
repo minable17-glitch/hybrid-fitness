@@ -11,12 +11,12 @@ function Closed({ what }) {
 }
 
 /* ── 2. 일상 자가진단 ── */
-export function DiagStep({ answers, editable, onChange, next }) {
+export function DiagStep({ answers, editable, onChange, next, preview }) {
   const n = answers.filter((v) => v >= 1).length;
   const offsets = AREAS.map((_, ai) => AREAS.slice(0, ai).reduce((t, a) => t + a.questions.length, 0));
   return (
     <>
-      {!editable && <Closed what="진단 입력" />}
+      {!editable && !preview && <Closed what="진단 입력" />}
       <div className="card">
         <h2>일상 자가진단</h2>
         <p className="muted" style={{ margin: 0 }}>평소 생활을 떠올리며 솔직하게 골라 주세요. 점수가 아니라 나를 알아보는 기록이에요.</p>
@@ -87,18 +87,20 @@ function level(sum) {
 
 let distCache = null;
 
-export function ResultStep({ answers, vals, run, sex, weak, editable, submitted, onChange, next, showToast }) {
-  const [avg, setAvg] = useState(avgCache);
-  const [dist, setDist] = useState(distCache);
+export function ResultStep({ answers, vals, run, sex, weak, editable, submitted, onChange, next, showToast, preview, preload }) {
+  // preload: 교사 미리보기에서 학생 대신 넘겨주는 {avg, dist} (학생 함수를 부르지 않음)
+  const [avg, setAvg] = useState(preload ? preload.avg : avgCache);
+  const [dist, setDist] = useState(preload ? preload.dist : distCache);
   const [err, setErr] = useState('');
   useEffect(() => {
+    if (preload) return undefined;
     let alive = true;
     Promise.all([getSchoolAverages(), getMyDistributions()]).then(([a, d]) => {
       avgCache = a; distCache = d;
       if (alive) { setAvg(a); setDist(d); }
     }).catch(() => { if (alive && !distCache) setErr('인터넷 연결이 끊겨 기록 분포를 불러오지 못했어요.'); });
     return () => { alive = false; };
-  }, []);
+  }, [preload]);
   const sums = diagSums(answers);
   const rlen = String(weak.reason || '').trim().length;
 
@@ -118,7 +120,7 @@ export function ResultStep({ answers, vals, run, sex, weak, editable, submitted,
     <>
       <div className="card">
         <h2>내 진단 결과</h2>
-        <p className="muted" style={{ marginTop: 0 }}>왼쪽은 내가 느끼는 일상 속 어려움, 오른쪽은 내 측정 기록이 같은 성별 1학년 분포에서 어디쯤인지(상위 몇 %)예요. 주황 막대가 내 기록 구간, 점선이 평균이에요.</p>
+        <p className="muted" style={{ marginTop: 0 }}>왼쪽은 내가 느끼는 일상 속 어려움, 오른쪽은 내 측정 기록이 같은 성별 1학년 분포에서 어디쯤인지(상위·하위 몇 %)예요. 주황 막대가 내 기록 구간, 점선이 평균이에요.</p>
         {err && <div className="msg msg-warn">{err}</div>}
         {!dist && !err && <p className="muted">기록 분포를 불러오는 중…</p>}
         {dist && <RadarPair vals={vals} runSec={run?.sec} dist={dist} answers={answers} />}
@@ -144,7 +146,7 @@ export function ResultStep({ answers, vals, run, sex, weak, editable, submitted,
         </div>
       </div>
 
-      {submitted ? <div className="msg msg-info">설계도를 제출해서 약점 선택은 바꿀 수 없어요.</div> : !editable && <Closed what="약점 선택" />}
+      {!preview && (submitted ? <div className="msg msg-info">설계도를 제출해서 약점 선택은 바꿀 수 없어요.</div> : !editable && <Closed what="약점 선택" />)}
       <div className="card">
         <h2>우선 보완할 약점 부위</h2>
         <p className="muted" style={{ marginTop: 0 }}>위 결과를 보고 1~2개를 고르세요.</p>

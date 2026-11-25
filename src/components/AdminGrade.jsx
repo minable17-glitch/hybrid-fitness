@@ -5,6 +5,7 @@ import { normalizeDesign, estimate, moveLabel, weakShare, designConvert, diagSum
 import { LogTable } from './AdminTables';
 import Distribution from './Distribution';
 import { RadarPair } from './Radar';
+import StudentPreview from './StudentPreview';
 import { Modal } from './ui';
 
 function levelOf(v, max) {
@@ -64,7 +65,7 @@ function ScorePanel({ detail, onSaved, showToast }) {
   );
 }
 
-function Detail({ d, onUnlock }) {
+function Detail({ d, onUnlock, onPreview }) {
   const g = normalizeDesign(d.design?.data);
   const avg = d.averages || {};
   const answers = Array.from({ length: QUESTION_COUNT }, (_, i) => Number(d.diag?.answers?.[i]) || 0);
@@ -81,6 +82,7 @@ function Detail({ d, onUnlock }) {
     <>
       <div className="card">
         <h2>{clsLabel(d.student.className)} {d.student.number}번 {d.student.name} <span className="muted">{d.student.studentNo}{d.student.sex ? ` · ${d.student.sex}` : ''}</span></h2>
+        <div style={{ marginBottom: 8 }}><button className="btn btn-accent btn-sm" type="button" id="preview" onClick={onPreview}>학생 화면 미리보기</button></div>
         <div className="row">설계도:
           {d.design?.status === '제출'
             ? <><span className="pill sub">제출</span> {fmtTime(d.design.submittedAt)} <button className="btn btn-danger btn-sm" type="button" id="unlock" onClick={onUnlock}>잠금 해제</button></>
@@ -142,6 +144,7 @@ export default function AdminGrade({ students, current, setCurrent, patchStudent
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState('');
   const [confirmUnlock, setConfirmUnlock] = useState(false);
+  const [preview, setPreview] = useState(false);
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
@@ -183,12 +186,13 @@ export default function AdminGrade({ students, current, setCurrent, patchStudent
       {!detail && !error && <div className="card">불러오는 중…</div>}
       {detail && (
         <div className="split">
-          <div><Detail d={detail} onUnlock={() => setConfirmUnlock(true)} /></div>
+          <div><Detail d={detail} onUnlock={() => setConfirmUnlock(true)} onPreview={() => setPreview(true)} /></div>
           <div className="side">
             <ScorePanel key={no} detail={detail} showToast={showToast} onSaved={(score) => patchStudent(no, { score })} />
           </div>
         </div>
       )}
+      {preview && detail && <StudentPreview detail={detail} onClose={() => setPreview(false)} />}
       {confirmUnlock && (
         <Modal title="제출 잠금 해제" onClose={() => setConfirmUnlock(false)}
           buttons={[{ label: '취소', cls: 'btn-outline', onClick: () => setConfirmUnlock(false) }, { label: '잠금 해제', cls: 'btn-danger', onClick: unlock }]}>

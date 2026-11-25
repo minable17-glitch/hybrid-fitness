@@ -1,4 +1,4 @@
-import { histogram, topPercent, mean } from '../lib/stats';
+import { histogram, topPercent, mean, rankLabel } from '../lib/stats';
 import { papsGrade } from '../lib/paps';
 import { fmtSec, fmtNum } from '../lib/design';
 
@@ -25,11 +25,11 @@ export default function Distribution({ name, unit, mine, dist, lowerBetter, isTi
     <div className="dist" data-measure={measureKey}>
       <div className="dist-head">
         <b>{name}</b> {has ? <span>{show(mine)}</span> : <span className="muted">기록 없음</span>}
-        {top != null && <span className="dist-top">상위 {top}%</span>}
+        {top != null && <span className={`dist-top ${top > 50 ? 'low' : ''}`}>{rankLabel(top)}</span>}
         {grade != null && <span className={`grade g${grade}`}>{grade}등급</span>}
       </div>
       <svg viewBox={`0 0 ${W} ${H + 14}`} className="dist-svg" role="img"
-        aria-label={`${name} 분포${top != null ? `, 상위 ${top}%` : ''}`}>
+        aria-label={`${name} 분포${top != null ? `, ${rankLabel(top)}` : ''}`}>
         {h.bars.map((b, i) => {
           const bh = (b.n / maxN) * (H - 6);
           return <rect key={i} x={x(b.from) + 1} width={Math.max(1, x(b.to) - x(b.from) - 2)} y={H - bh} height={bh} rx="2"
