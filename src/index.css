@@ -222,3 +222,18 @@ tr.click:hover td { background: #f6faf8; }
 .big.hit { color: var(--accent); }
 .chip.static { cursor: default; font-size: 13px; padding: 5px 11px; }
 .chip.static.on { background: var(--accent); border-color: var(--accent); }
+
+/* 기록 분포표 */
+.dist { padding: 10px 0 12px; border-top: 1px dashed var(--border-color); }
+.dist:first-child { border-top: 0; padding-top: 0; }
+.dist-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.dist-top { font-weight: 800; color: var(--primary); background: var(--primary-soft); border-radius: 99px; padding: 1px 9px; font-size: 13px; }
+.grade { font-weight: 800; border-radius: 6px; padding: 1px 8px; font-size: 13px; color: #fff; }
+.grade.g1 { background: #1f7a4d; } .grade.g2 { background: #2f9e78; } .grade.g3 { background: #c79100; }
+.grade.g4 { background: #e0613a; } .grade.g5 { background: #b91c1c; }
+.dist-svg { width: 100%; height: 86px; display: block; }
+.dist-svg rect { fill: #c9d8d2; }
+.dist-svg rect.me { fill: var(--accent); }
+.dist-svg .avg { stroke: #5c6a65; stroke-width: 1.5; stroke-dasharray: 3 3; }
+.dist-svg .me-mark { fill: var(--accent); }
+.dist-foot { font-size: 12px; margin-top: 2px; }

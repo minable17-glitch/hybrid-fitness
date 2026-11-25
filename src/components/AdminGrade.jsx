@@ -3,6 +3,7 @@ import { adminStudentDetail, adminSaveScore, adminUnlockDesign } from '../lib/ap
 import { MEASURES, SCORE_ITEMS, SCORE_MAX, MOVE_AREAS, WARN_MIN, QUESTION_COUNT, areaName, moveAreaName } from '../lib/content';
 import { normalizeDesign, estimate, moveLabel, weakShare, designConvert, diagSums, clsLabel, fmtSec, fmtNum, fmtTime } from '../lib/design';
 import { LogTable } from './AdminTables';
+import Distribution from './Distribution';
 import { Modal } from './ui';
 
 function levelOf(v, max) {
@@ -92,6 +93,15 @@ function Detail({ d, onUnlock }) {
             <tbody>{diagSums(answers).map((s) => <tr key={s.key}><td>{s.name}</td><td className="c">{s.sum ?? '-'}</td></tr>)}</tbody></table></div>
           <div className="tbl-wrap"><table><thead><tr><th>측정</th><th className="c">기록</th><th className="c">비교 평균 (같은 성별)</th></tr></thead>
             <tbody>{MEASURES.map((m) => row(m.name, vals[m.key], m.key, m.unit))}{row('1km 달리기', d.student.runSec, 'run1km', '', true)}</tbody></table></div>
+        </div>
+      </div>
+      <div className="card" id="tdist">
+        <h3>종목별 기록 분포 <span className="muted">(이름 없이 기록만 · 주황 막대가 이 학생)</span></h3>
+        <div className="grid2">
+          {MEASURES.map((m) => (
+            <Distribution key={m.key} measureKey={m.key} name={m.name} unit={m.unit} mine={vals[m.key]} dist={d.distributions?.[m.key]} avgInfo={avg[m.key]} sex={d.student.sex} />
+          ))}
+          <Distribution measureKey="run1km" name="1km 달리기" mine={d.student.runSec} dist={d.distributions?.run1km} avgInfo={avg.run1km} lowerBetter isTime sex={d.student.sex} />
         </div>
       </div>
       <div className="card">

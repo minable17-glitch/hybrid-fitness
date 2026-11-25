@@ -246,10 +246,10 @@ export default function StudentApp({ student, onLogout }) {
             onChange={(answers) => commit('diag', { answers })} next={nextBtn('measure', '측정 기록')} />
         )}
         {step === 'measure' && (
-          <MeasureStep vals={state.measure.vals} run={state.run} next={nextBtn('result', '진단 결과')} />
+          <MeasureStep vals={state.measure.vals} run={state.run} sex={state.me?.sex} next={nextBtn('result', '진단 결과')} />
         )}
         {step === 'result' && (
-          <ResultStep answers={state.diag.answers} vals={state.measure.vals} run={state.run} weak={state.weak}
+          <ResultStep answers={state.diag.answers} vals={state.measure.vals} run={state.run} sex={state.me?.sex} weak={state.weak}
             editable={s.diagOpen && !submitted} submitted={submitted} showToast={showToast}
             onChange={(w) => commit('weak', w)} next={nextBtn('library', '동작 라이브러리')} />
         )}

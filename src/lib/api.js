@@ -40,6 +40,7 @@ export async function studentLogout() {
 export const getMyState = () => rpc('get_my_state');
 export const getSettingsPublic = () => rpc('get_settings_public');
 export const getSchoolAverages = () => rpc('get_school_averages');
+export const getMyDistributions = () => rpc('get_my_distributions');
 export const saveDiag = (answers, rev) => rpc('save_diag', { p_answers: answers, p_rev: rev });
 export const saveWeak = (areas, reason, rev) => rpc('save_weak', { p_areas: areas, p_reason: reason, p_rev: rev });
 export const markLibraryViewed = () => rpc('mark_library_viewed');

@@ -288,6 +288,41 @@ begin
 end;
 $$;
 
+-- 종목별 기록 분포 (이름 없이 값만, 오름차순). 같은 성별이 5명 이상이면 같은 성별, 아니면 1학년 전체
+create or replace function distributions_for(p_sex text) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  out jsonb := '{}';
+  k text;
+  v_vals jsonb;
+  n int;
+  scope text;
+begin
+  foreach k in array array['shuttle', 'sitreach', 'grip', 'jump', 'pushup', 'plank', 'pull', 'run1km'] loop
+    if k = 'run1km' then
+      select coalesce(jsonb_agg(run_sec order by run_sec), '[]'), count(*) into v_vals, n
+      from roster where run_sec is not null and sex = p_sex;
+    else
+      select coalesce(jsonb_agg((m.vals ->> k)::numeric order by (m.vals ->> k)::numeric), '[]'), count(*) into v_vals, n
+      from measures m join roster r on r.student_no = m.student_no
+      where jsonb_typeof(m.vals -> k) = 'number' and r.sex = p_sex;
+    end if;
+    scope := p_sex || '학생';
+    if coalesce(n, 0) < 5 then
+      if k = 'run1km' then
+        select coalesce(jsonb_agg(run_sec order by run_sec), '[]') into v_vals from roster where run_sec is not null;
+      else
+        select coalesce(jsonb_agg((ms.vals ->> k)::numeric order by (ms.vals ->> k)::numeric), '[]') into v_vals
+        from measures ms where jsonb_typeof(ms.vals -> k) = 'number';
+      end if;
+      scope := '1학년 전체';
+    end if;
+    out := out || jsonb_build_object(k, jsonb_build_object('values', v_vals, 'scope', scope));
+  end loop;
+  return out;
+end;
+$$;
+
 create or replace function recompute_score(p_student_no text) returns void
 language plpgsql security definer set search_path = public as $$
 begin
@@ -309,6 +344,7 @@ revoke execute on function me_student() from public, anon, authenticated;
 revoke execute on function assert_teacher() from public, anon, authenticated;
 revoke execute on function compute_averages(text) from public, anon, authenticated;
 revoke execute on function averages_for(text) from public, anon, authenticated;
+revoke execute on function distributions_for(text) from public, anon, authenticated;
 revoke execute on function recompute_score(text) from public, anon, authenticated;
 
 -- ── 교사 계정 ────────────────────────────────────────────
@@ -396,7 +432,7 @@ declare
   me roster%rowtype := me_student();
 begin
   return jsonb_build_object(
-    'me', jsonb_build_object('studentNo', me.student_no, 'name', me.name, 'className', me.class_name, 'number', me.number),
+    'me', jsonb_build_object('studentNo', me.student_no, 'name', me.name, 'className', me.class_name, 'number', me.number, 'sex', me.sex),
     'run', jsonb_build_object('text', me.run_text, 'sec', me.run_sec),
     'diag', (select jsonb_build_object('answers', answers, 'rev', rev) from diagnoses where student_no = me.student_no),
     'measure', (select jsonb_build_object('vals', vals, 'rev', rev) from measures where student_no = me.student_no),
@@ -423,6 +459,17 @@ begin
 end;
 $$;
 grant execute on function get_school_averages() to anon, authenticated;
+
+-- 내 성별(또는 1학년 전체)의 종목별 기록 분포 — 이름 없이 값만 (상위 몇 %인지 계산·분포표용)
+create or replace function get_my_distributions() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  me roster%rowtype := me_student();
+begin
+  return distributions_for(me.sex);
+end;
+$$;
+grant execute on function get_my_distributions() to anon, authenticated;
 
 -- ── 학생 저장 (응답: {ok, code?, settings}) ────────────────
 
@@ -624,7 +671,8 @@ begin
     'score', (select to_jsonb(s) - 'student_no' from scores s where student_no = r.student_no),
     'logs', coalesce((select jsonb_agg(jsonb_build_object('kind', kind, 'startedAt', started_at, 'endedAt', ended_at, 'seconds', seconds,
                'field', field, 'delta', delta, 'note', note) order by started_at, id) from activity_logs where student_no = r.student_no), '[]'::jsonb),
-    'averages', averages_for(r.sex));
+    'averages', averages_for(r.sex),
+    'distributions', distributions_for(r.sex));
 end;
 $$;
 grant execute on function admin_student_detail(text) to anon, authenticated;

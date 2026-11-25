@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { AREAS, ANSWERS, MEASURES, RUN, MIN_REASON, TEXTBOOK_URL } from '../lib/content';
 import { diagSums, fmtSec, fmtNum } from '../lib/design';
-import { getSchoolAverages } from '../lib/api';
+import { getSchoolAverages, getMyDistributions } from '../lib/api';
+import Distribution from './Distribution';
+import { papsGrade } from '../lib/paps';
 
 function Closed({ what }) {
   return <div className="msg msg-warn">지금은 {what} 시간이 아니에요. 선생님이 열어 주면 입력할 수 있어요. (보는 것은 가능)</div>;
@@ -45,7 +47,7 @@ export function DiagStep({ answers, editable, onChange, next }) {
 }
 
 /* ── 3. 간이측정 기록 ── */
-export function MeasureStep({ vals, run, next }) {
+export function MeasureStep({ vals, run, sex, next }) {
   return (
     <>
       <div className="card">
@@ -56,7 +58,8 @@ export function MeasureStep({ vals, run, next }) {
           return (
             <div className="meas" key={m.key} data-m={m.key}>
               <div><b>{m.name}</b><div className="muted">{m.note}</div></div>
-              <div><b>{v == null || v === '' ? <span className="muted">기록 없음</span> : `${fmtNum(v)}${m.unit}`}</b></div>
+              <div><b>{v == null || v === '' ? <span className="muted">기록 없음</span> : `${fmtNum(v)}${m.unit}`}</b>
+                {papsGrade(m.key, sex, v) != null && <> <span className={`grade g${papsGrade(m.key, sex, v)}`}>팝스 {papsGrade(m.key, sex, v)}등급</span></>}</div>
             </div>
           );
         })}
@@ -81,32 +84,18 @@ function level(sum) {
   return { t: '자주 힘듦', c: '#e0613a', w: (sum / 9) * 100 };
 }
 
-function Position({ name, mine, avgInfo, unit, isRun }) {
-  const show = (v) => (isRun ? fmtSec(v) : `${fmtNum(v)}${unit}`);
-  if (mine == null || mine === '') return <div className="mrow"><b>{name}</b> <span className="muted">기록 없음</span></div>;
-  if (!avgInfo || avgInfo.avg == null) return <div className="mrow"><b>{name}</b> {show(mine)} <span className="muted">· 학교 평균 자료가 아직 없어요</span></div>;
-  const avg = Number(avgInfo.avg);
-  const sd = Number(avgInfo.sd) > 0 ? Number(avgInfo.sd) : Math.max(Math.abs(avg) * 0.25, 1);
-  let z = (Number(mine) - avg) / sd;
-  if (isRun) z = -z;   // 1km는 기록이 짧을수록 좋음
-  const left = 50 + Math.max(-2, Math.min(2, z)) * 22.5;
-  const word = Math.abs(z) < 0.3 ? '평균과 비슷' : z > 0 ? (isRun ? '평균보다 빠름' : '평균보다 높음') : (isRun ? '평균보다 느림' : '평균보다 낮음');
-  return (
-    <div className="mrow">
-      <b>{name}</b> {show(mine)} · <b style={{ color: 'var(--primary)' }}>{word}</b>
-      <div className="pos" aria-hidden="true"><div className="track" /><div className="avg" /><div className="me" style={{ left: `${left}%` }} /></div>
-      <div className="pos-lb"><span>{isRun ? '느림' : '낮음'}</span><span>{avgInfo.scope || '학교 평균'} {show(avg)}</span><span>{isRun ? '빠름' : '높음'}</span></div>
-    </div>
-  );
-}
+let distCache = null;
 
-export function ResultStep({ answers, vals, run, weak, editable, submitted, onChange, next, showToast }) {
+export function ResultStep({ answers, vals, run, sex, weak, editable, submitted, onChange, next, showToast }) {
   const [avg, setAvg] = useState(avgCache);
+  const [dist, setDist] = useState(distCache);
   const [err, setErr] = useState('');
   useEffect(() => {
     let alive = true;
-    getSchoolAverages().then((a) => { avgCache = a; if (alive) setAvg(a); })
-      .catch(() => { if (alive && !avgCache) setErr('인터넷 연결이 끊겨 학교 평균을 불러오지 못했어요.'); });
+    Promise.all([getSchoolAverages(), getMyDistributions()]).then(([a, d]) => {
+      avgCache = a; distCache = d;
+      if (alive) { setAvg(a); setDist(d); }
+    }).catch(() => { if (alive && !distCache) setErr('인터넷 연결이 끊겨 기록 분포를 불러오지 못했어요.'); });
     return () => { alive = false; };
   }, []);
   const sums = diagSums(answers);
@@ -122,19 +111,19 @@ export function ResultStep({ answers, vals, run, weak, editable, submitted, onCh
   }
 
   const measureFor = (areaKey) => MEASURES.filter((m) => m.area === areaKey).map((m) => (
-    <Position key={m.key} name={m.name} mine={vals[m.key]} avgInfo={avg?.[m.key]} unit={m.unit} />
+    <Distribution key={m.key} measureKey={m.key} name={m.name} mine={vals?.[m.key]} unit={m.unit} dist={dist?.[m.key]} avgInfo={avg?.[m.key]} sex={sex} />
   ));
   return (
     <>
       <div className="card">
         <h2>내 진단 결과</h2>
-        <p className="muted" style={{ marginTop: 0 }}>왼쪽은 내가 느끼는 일상 속 어려움, 오른쪽은 측정 기록이 같은 성별 1학년 평균에서 어디쯤인지예요. 순위나 점수는 없어요.</p>
+        <p className="muted" style={{ marginTop: 0 }}>왼쪽은 내가 느끼는 일상 속 어려움, 오른쪽은 내 측정 기록이 같은 성별 1학년 분포에서 어디쯤인지(상위 몇 %)예요. 주황 막대가 내 기록 구간, 점선이 평균이에요.</p>
         {err && <div className="msg msg-warn">{err}</div>}
-        {!avg && !err && <p className="muted">학교 평균을 불러오는 중…</p>}
+        {!dist && !err && <p className="muted">기록 분포를 불러오는 중…</p>}
         {sums.map((s) => {
           const lv = level(s.sum);
           const ms = measureFor(s.key);
-          if (s.key === RUN.area) ms.push(<Position key="run" name="1km 달리기" mine={run?.sec} avgInfo={avg?.run1km} isRun />);
+          if (s.key === RUN.area) ms.push(<Distribution key="run" measureKey="run1km" name="1km 달리기" mine={run?.sec} dist={dist?.run1km} avgInfo={avg?.run1km} lowerBetter isTime sex={sex} />);
           return (
             <div className="area" key={s.key}>
               <div>
