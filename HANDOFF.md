@@ -33,11 +33,11 @@ StudentApp   상단 단계 버튼 5개 (앞 단계 완료 시 열림)
   1 자가진단      DiagStep      6부위 × 3문항, 쉽다/가끔 힘듦/자주 힘듦
   2 측정 기록     MeasureStep   7항목 입력 + 1km(교사가 명렬표로 등록, 읽기 전용)
   3 진단 결과     ResultStep    부위별 [자가진단 막대 | 측정 기록의 학교 평균 대비 위치] + 약점 1~2개·이유(10자 이상)
-  4 동작 라이브러리 LibraryStep  부위별 카드(3D 링크 iframe / "준비 중"). 열면 '봤음' 기록 → 설계도 열림
+  4 동작 라이브러리 LibraryStep  3D 움직임 교과서(squat-coach 저장소 textbook/) 새 창 링크만. 열면 '봤음' 기록 → 설계도 열림
   5 설계도        DesignStep    상단 고정 약점·이유·약점 동작 비중(n/5칸), 비중 막대, 동작 5칸(동작명·부위·근육·자세·안전·일상 활용·순서·횟수/시간,
                                 약점 부위 동작은 주황색), 구성, 진행 순서·예상 시간 미리보기, 임시저장/최종 제출
 AdminTab  교사 로그인/가입 → 반 선택 + 탭 7개
-  진행 현황 / 이탈·의심 입력 / 학생 상세·채점(AdminGrade) / 수행 기록 / 학교 평균 / 명렬표·설정·일람표 / 동작 라이브러리
+  진행 현황 / 이탈·의심 입력 / 학생 상세·채점(AdminGrade) / 수행 기록 / 학교 평균 / 명렬표·설정·일람표
 ```
 
 ## 4. 파일 지도
@@ -54,12 +54,12 @@ src/
     session.js / supabaseClient.js / useOnlineStatus.js
   components/
     StudentApp.jsx         상태 로드·오프라인 병합·단계 잠금·저장 상태 표시·설정 폴링(20초)
-    StudentSteps.jsx       Diag/Measure/Result/Library 단계 + MoveCard
+    StudentSteps.jsx       Diag/Measure/Result/Library 단계
     DesignStep.jsx         설계도 + 화면 보안(useGuard)
     AdminTab.jsx           교사 로그인·셸
     AdminTables.jsx        진행 현황·이탈 기록·수행 기록 표
     AdminGrade.jsx         학생 상세 + 설계 채점 패널(충족/부분/미흡 클릭 즉시 저장)
-    AdminSetup.jsx         학교 평균·열기/닫기·명렬표 등록·일람표·동작 라이브러리 편집
+    AdminSetup.jsx         학교 평균·열기/닫기·명렬표 등록·일람표
     ui.jsx                 Modal, useToast, useHeaderHeight
 supabase/schema.sql        전체 스키마 + RPC (다시 실행해도 안전)
 ```
@@ -76,10 +76,9 @@ supabase/schema.sql        전체 스키마 + RPC (다시 실행해도 안전)
 | `weaknesses` | 약점 부위 text[], 이유, done, library_viewed |
 | `designs` | 설계도 jsonb `{moves:[{name, area, muscle, posture, safety, daily, order, mode, val}×5], restMove, restRound, rounds, runDist, runWhere}`, 예상 분, 상태, 제출 시각 |
 | `activity_logs` | 이탈(나간·돌아온 시각, 머문 초) / 의심 입력(입력란, 늘어난 글자 수) |
-| `moves` | 동작 라이브러리 (select만 공개) |
 | `scores` | 설계 5항목(각 0~2), 미참여·백지, 설계합계(0~10)·환산, 수행 1·2회, 수행 점수, 총점 |
 
-- 모든 테이블 RLS on, `moves` select 외 직접 접근 없음. 내부 도우미(`me_student`, `assert_teacher`, `compute_averages`, `recompute_score`)는 `revoke execute`로 RPC 호출을 막았다.
+- 모든 테이블 RLS on, 직접 접근 없음. 내부 도우미(`me_student`, `assert_teacher`, `compute_averages`, `recompute_score`)는 `revoke execute`로 RPC 호출을 막았다.
 - 학생 저장 RPC는 `{ok, code?, settings}`를 돌려준다. `code`: `CLOSED`(교사가 닫음 → 큐에 남겨 두고 열리면 재전송), `LOCKED`(제출됨 → 서버본으로 교체), `INCOMPLETE`(제출 시 빈칸 목록).
 - **rev**: 학생 기기에서 마지막으로 고친 시각(ms). upsert의 `where 기존.rev <= 새.rev`로, 늦게 도착한 옛 저장이 최신본을 덮지 못한다. 교사 잠금 해제는 rev를 지금으로 올려서 기기의 옛 사본을 무효화.
 - 환산: `design_convert`(합계 9~10→14, 8→12, 7→10, 5~6→8, 3~4→6, 0~2(제출)→4, 백지→2), `perf_convert`(4→6, 3→5, 2→4, 1→3, 미참여→2). **참여했는데 2회 합계 0점은 PRD에 없어 2점으로 처리 — 교사 확인 필요.**
@@ -121,4 +120,4 @@ supabase/schema.sql        전체 스키마 + RPC (다시 실행해도 안전)
    - 약점 부위에 '심폐'를 고르면 동작 부위에는 심폐가 없으므로, 설계도에 "러닝 구간으로 보완" 안내만 띄운다(비중 계산에는 안 들어감).
 2. 명렬표 열: 반·번호·학번·이름·1km 기록. 반 수·인원 제한 없음.
 3. 자가진단 문항: 부위별 3문항 초안 → `src/lib/content.js`의 `AREAS`. **문항 수를 바꾸면** `schema.sql`의 `save_diag`(18 고정)도 함께 고칠 것.
-4. 3D 콘텐츠: 링크 방식(https 주소 → 카드 안 iframe + 새 창 링크). 교사 화면 '동작 라이브러리'에서 입력.
+4. 동작 라이브러리: 교사가 만든 3D 움직임 교과서(https://minable17-glitch.github.io/squat-coach/textbook/) 링크만 건다 (교사 결정, 2026-11-25). 주소는 `src/lib/content.js`의 `TEXTBOOK_URL`. 예전의 동작 카드·`moves` 표는 지웠고, schema.sql 재실행 시 `drop table if exists moves`로 정리된다.

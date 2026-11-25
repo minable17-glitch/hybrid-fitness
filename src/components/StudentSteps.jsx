@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { AREAS, ANSWERS, MEASURES, RUN, MIN_REASON, TEXTBOOK_URL, areaName } from '../lib/content';
+import { AREAS, ANSWERS, MEASURES, RUN, MIN_REASON, TEXTBOOK_URL } from '../lib/content';
 import { validMeasure, diagSums, fmtSec, fmtNum } from '../lib/design';
-import { getSchoolAverages, listMoves } from '../lib/api';
+import { getSchoolAverages } from '../lib/api';
 
 function Closed({ what }) {
   return <div className="msg msg-warn">지금은 {what} 시간이 아니에요. 선생님이 열어 주면 입력할 수 있어요. (보는 것은 가능)</div>;
@@ -181,64 +181,18 @@ export function ResultStep({ answers, vals, run, weak, editable, submitted, onCh
   );
 }
 
-/* ── 5. 동작 라이브러리 ── */
-let movesCache = null;
-
-export function LibraryStep({ weakAreas, viewed, onViewed, next }) {
-  const [moves, setMoves] = useState(movesCache);
-  const [area, setArea] = useState('');
-  const [err, setErr] = useState('');
-  useEffect(() => {
-    if (!viewed) onViewed();
-    let alive = true;
-    listMoves().then((m) => { movesCache = m; if (alive) setMoves(m); })
-      .catch(() => { if (alive && !movesCache) setErr('인터넷 연결이 끊겨 동작 카드를 불러오지 못했어요.'); });
-    return () => { alive = false; };
-    // 처음 열 때 한 번만
-  }, []);
-  const list = (moves || []).filter((m) => !area || m.area === area);
+/* ── 5. 동작 라이브러리: 3D 움직임 교과서 링크 ── */
+export function LibraryStep({ viewed, onViewed, next }) {
+  // 이 화면을 열면 '동작 학습'을 한 것으로 보고 설계도를 연다
+  useEffect(() => { if (!viewed) onViewed(); }, [viewed, onViewed]);
   return (
     <>
       <div className="card">
         <h2>동작 라이브러리</h2>
-        <p className="muted" style={{ marginTop: 0 }}>부위별 동작을 보고 배우는 곳이에요. 설계도에는 자동으로 들어가지 않으니, 이해한 내용을 내 말로 적어야 해요.</p>
-        <a className="btn btn-accent" href={TEXTBOOK_URL} target="_blank" rel="noopener noreferrer" id="textbook" style={{ margin: '4px 0 14px' }}>
-          3D 움직임 교과서 열기 ↗
-        </a>
-        <div className="chips">
-          <button type="button" className={`chip ${!area ? 'on' : ''}`} onClick={() => setArea('')}>전체</button>
-          {AREAS.map((a) => (
-            <button key={a.key} type="button" className={`chip ${area === a.key ? 'on' : ''}`} onClick={() => setArea(a.key)}>
-              {a.name}{weakAreas.includes(a.key) ? ' ★' : ''}
-            </button>
-          ))}
-        </div>
+        <p className="muted" style={{ marginTop: 0 }}>3D 움직임 교과서에서 부위별 동작의 사용 근육, 바른 자세, 안전, 일상 활용을 보고 배워요. 설계도에는 자동으로 들어가지 않으니, 이해한 내용을 내 말로 적어야 해요.</p>
+        <a className="btn btn-accent" href={TEXTBOOK_URL} target="_blank" rel="noopener noreferrer" id="textbook">3D 움직임 교과서 열기 ↗</a>
       </div>
-      {err && <div className="msg msg-warn">{err}</div>}
-      {!moves && !err && <div className="card">동작 카드를 불러오는 중…</div>}
-      <div className="lib">
-        {moves && !list.length && <div className="card muted">아직 등록된 동작이 없어요.</div>}
-        {list.map((m) => <MoveCard key={m.id} m={m} />)}
-      </div>
-      <div style={{ marginTop: 14 }}>{next}</div>
+      {next}
     </>
-  );
-}
-
-export function MoveCard({ m }) {
-  const link = String(m.link_3d || '').trim();
-  const kv = [['사용 근육', m.muscles], ['자세 포인트', m.posture], ['안전', m.safety], ['일상 활용', m.daily], ['필요 도구', m.tools]].filter(([, v]) => v);
-  return (
-    <div className="card">
-      <span className="tag">{areaName(m.area)}</span>
-      <h3 style={{ marginTop: 6 }}>{m.name}</h3>
-      {/^https:\/\//i.test(link) ? (
-        <>
-          <div className="d3"><iframe src={link} loading="lazy" allowFullScreen title={`${m.name} 3D`} /></div>
-          <a href={link} target="_blank" rel="noopener noreferrer" className="muted">새 창에서 3D 보기</a>
-        </>
-      ) : <div className="d3">3D 보기 준비 중</div>}
-      <dl className="kv">{kv.map(([t, v]) => <div key={t}><dt>{t}</dt><dd>{v}</dd></div>)}</dl>
-    </div>
   );
 }

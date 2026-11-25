@@ -5,11 +5,11 @@ import { clsLabel } from '../lib/design';
 import { useToast, useHeaderHeight } from './ui';
 import { AdminProgress, AdminLogs, AdminPerf } from './AdminTables';
 import AdminGrade from './AdminGrade';
-import { AdminAverages, AdminSetup, AdminMoves } from './AdminSetup';
+import { AdminAverages, AdminSetup } from './AdminSetup';
 
 const TABS = [
   ['progress', '진행 현황'], ['logs', '이탈·의심 입력'], ['grade', '학생 상세·채점'], ['perf', '수행 기록'],
-  ['avg', '학교 평균'], ['setup', '명렬표·설정·일람표'], ['moves', '동작 라이브러리'],
+  ['avg', '학교 평균'], ['setup', '명렬표·설정·일람표'],
 ];
 
 function AuthScreen({ onDone, onExit }) {
@@ -128,7 +128,7 @@ export default function AdminTab({ onExit }) {
       <div className="app-main">
         {error && <div className="msg msg-error">{error}</div>}
         {!ov && !error && <div className="card">불러오는 중…</div>}
-        {ov && !ov.students.length && tab !== 'setup' && tab !== 'moves' && (
+        {ov && !ov.students.length && tab !== 'setup' && (
           <div className="msg msg-info">아직 명렬표가 없어요. '명렬표·설정·일람표' 탭에서 명렬표를 먼저 등록해주세요.</div>
         )}
         {ov && tab === 'progress' && <AdminProgress {...ctx} />}
@@ -137,7 +137,6 @@ export default function AdminTab({ onExit }) {
         {ov && tab === 'perf' && <AdminPerf {...ctx} />}
         {ov && tab === 'avg' && <AdminAverages {...ctx} />}
         {ov && tab === 'setup' && <AdminSetup {...ctx} />}
-        {tab === 'moves' && <AdminMoves showToast={showToast} />}
       </div>
       {toast}
     </div>

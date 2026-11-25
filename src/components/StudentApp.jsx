@@ -258,7 +258,7 @@ export default function StudentApp({ student, onLogout }) {
             onChange={(w) => commit('weak', w)} next={nextBtn('library', '동작 라이브러리')} />
         )}
         {step === 'library' && (
-          <LibraryStep weakAreas={state.weak.areas} viewed={state.library.viewed}
+          <LibraryStep viewed={state.library.viewed}
             onViewed={() => commit('library', { viewed: true })} next={nextBtn('design', '설계도 작성')} />
         )}
         {step === 'design' && (

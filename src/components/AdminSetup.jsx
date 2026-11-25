@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
-import { adminSaveSettings, adminImportRoster, adminDeleteStudent, listMoves, adminUpsertMove, adminDeleteMove } from '../lib/api';
-import { AREAS, MEASURES, RUN, SCORE_ITEMS, areaName } from '../lib/content';
+import { useState } from 'react';
+import { adminSaveSettings, adminImportRoster, adminDeleteStudent } from '../lib/api';
+import { MEASURES, RUN, SCORE_ITEMS } from '../lib/content';
 import { parseRun, fmtSec, fmtNum, clsLabel } from '../lib/design';
 import { Modal } from './ui';
-import { MoveCard } from './StudentSteps';
 
 /* ── 학교 평균 ── */
 export function AdminAverages({ ov, setOv, showToast }) {
@@ -209,69 +208,6 @@ export function AdminSetup({ ov, setOv, allStudents, refresh, showToast }) {
           <p><b>{del.name}</b>({del.studentNo}) 학생을 명렬표에서 지우면 그 학생의 진단·설계도·이탈 기록·점수도 모두 지워져요. 되돌릴 수 없어요.</p>
         </Modal>
       )}
-    </>
-  );
-}
-
-/* ── 동작 라이브러리 편집 ── */
-const EMPTY_MOVE = { id: null, area: 'push', name: '', link_3d: '', muscles: '', posture: '', safety: '', daily: '', tools: '', order_index: 0 };
-
-export function AdminMoves({ showToast }) {
-  const [moves, setMoves] = useState(null);
-  const [edit, setEdit] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const load = () => listMoves().then(setMoves).catch((e) => showToast(e.message));
-  useEffect(() => { void load(); }, []);
-
-  async function save() {
-    try { await adminUpsertMove(edit); setEdit(null); await load(); showToast('저장했어요'); } catch (e) { showToast(e.message); }
-  }
-  async function remove(m) {
-    try { await adminDeleteMove(m.id); await load(); showToast('삭제했어요'); } catch (e) { showToast(e.message); }
-  }
-  const fld = (k, label, multi) => (
-    <div className="field"><label>{label}</label>
-      {multi ? <textarea rows={2} value={edit[k] || ''} onChange={(e) => setEdit({ ...edit, [k]: e.target.value })} />
-        : <input type="text" value={edit[k] || ''} onChange={(e) => setEdit({ ...edit, [k]: e.target.value })} />}
-    </div>
-  );
-  return (
-    <>
-      <div className="card row between">
-        <div><h2 style={{ margin: 0 }}>동작 라이브러리</h2><div className="muted">학생 화면 '동작 라이브러리' 카드. 3D 링크(https://…)를 넣으면 카드 안에 바로 보여요.</div></div>
-        <button className="btn btn-primary" type="button" onClick={() => setEdit({ ...EMPTY_MOVE })}>+ 동작 추가</button>
-      </div>
-      {!moves && <div className="card">불러오는 중…</div>}
-      {moves && AREAS.map((a) => (
-        <div className="card" key={a.key}>
-          <h3>{a.name}</h3>
-          {moves.filter((m) => m.area === a.key).map((m) => (
-            <div className="row between" key={m.id} style={{ padding: '6px 0', borderTop: '1px solid var(--border-color)' }}>
-              <div><b>{m.name}</b> <span className="muted">{m.link_3d ? '· 3D 있음' : '· 3D 없음'}</span></div>
-              <div className="row">
-                <button className="btn btn-outline btn-sm" type="button" onClick={() => setPreview(m)}>미리 보기</button>
-                <button className="btn btn-outline btn-sm" type="button" onClick={() => setEdit({ ...m })}>수정</button>
-                <button className="btn btn-outline btn-sm" type="button" onClick={() => remove(m)}>삭제</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      ))}
-      {edit && (
-        <Modal wide title={edit.id ? '동작 수정' : '동작 추가'} onClose={() => setEdit(null)}
-          buttons={[{ label: '취소', cls: 'btn-outline', onClick: () => setEdit(null) }, { label: '저장', onClick: save }]}>
-          <div className="grid2">
-            <div className="field"><label>부위</label>
-              <select value={edit.area} onChange={(e) => setEdit({ ...edit, area: e.target.value })}>{AREAS.map((a) => <option key={a.key} value={a.key}>{a.name}</option>)}</select></div>
-            {fld('name', '동작명')}
-          </div>
-          {fld('link_3d', '3D 링크 (https://…, 없으면 비워 두기)')}
-          <div className="grid2">{fld('muscles', '사용 근육')}{fld('tools', '필요 도구')}</div>
-          {fld('posture', '자세 포인트', true)}{fld('safety', '안전', true)}{fld('daily', '일상 활용', true)}
-          <div className="field"><label>순서</label><input type="number" value={edit.order_index ?? 0} onChange={(e) => setEdit({ ...edit, order_index: e.target.value })} /></div>
-        </Modal>
-      )}
-      {preview && <Modal title={`미리 보기 · ${areaName(preview.area)}`} onClose={() => setPreview(null)}><div className="lib"><MoveCard m={preview} /></div></Modal>}
     </>
   );
 }

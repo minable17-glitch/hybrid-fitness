@@ -48,11 +48,6 @@ export const saveDesign = (data, estMin, rev) => rpc('save_design', { p_data: da
 export const submitDesign = (data, estMin, rev) => rpc('submit_design', { p_data: data, p_est: estMin, p_rev: rev });
 export const logActivity = (entries) => rpc('log_activity', { p_entries: entries });
 
-export async function listMoves() {
-  const { data, error } = await supabase.from('moves').select('*').order('area').order('order_index');
-  if (error) throw error;
-  return data || [];
-}
 
 /* ── 교사 ── */
 export async function teacherLogin(username, password) {
@@ -75,8 +70,3 @@ export const adminUnlockDesign = (studentNo) => rpc('admin_unlock_design', { p_s
 export const adminSaveSettings = (patch) => rpc('admin_save_settings', { p_patch: patch });
 export const adminImportRoster = (rows) => rpc('admin_import_roster', { p_rows: rows });
 export const adminDeleteStudent = (studentNo) => rpc('admin_delete_student', { p_student_no: studentNo });
-export const adminUpsertMove = (m) => rpc('admin_upsert_move', {
-  p_id: m.id || null, p_area: m.area, p_name: m.name, p_link_3d: m.link_3d || '', p_muscles: m.muscles || '',
-  p_posture: m.posture || '', p_safety: m.safety || '', p_daily: m.daily || '', p_tools: m.tools || '', p_order_index: Number(m.order_index) || 0,
-});
-export const adminDeleteMove = (id) => rpc('admin_delete_move', { p_id: id });

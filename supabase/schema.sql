@@ -7,7 +7,7 @@
 --
 -- 설계: 모든 테이블에 RLS를 켜고 직접 접근은 막는다. 읽기/쓰기는 전부
 -- SECURITY DEFINER RPC 함수로만 하고, 함수 안에서 auth.uid()로 신원을 확인한다.
--- 예외: 동작 라이브러리(moves)는 민감하지 않아 select만 직접 허용.
+-- 동작 라이브러리는 3D 움직임 교과서 링크(src/lib/content.js TEXTBOOK_URL)라 DB에 없다.
 --
 -- 학생 신원: roster.auth_user_id = 지금 익명 세션. 로그인할 때마다 덮어쓰므로
 -- 다른 기기에서 로그인하면 이전 기기는 저장이 막히고 "다시 로그인" 안내가 뜬다.
@@ -105,15 +105,10 @@ create table if not exists activity_logs (
 );
 create index if not exists idx_logs_student on activity_logs(student_no, started_at);
 
-create table if not exists moves (
-  id uuid primary key default gen_random_uuid(),
-  area text not null,                   -- 부위 key (push, pull, core, legEnd, legPow, cardio)
-  name text not null,
-  link_3d text,
-  muscles text, posture text, safety text, daily text, tools text,
-  order_index int not null default 0,
-  created_at timestamptz not null default now()
-);
+-- 예전 버전의 동작 라이브러리 표(이제 안 씀)
+drop table if exists moves cascade;
+drop function if exists admin_upsert_move(uuid, text, text, text, text, text, text, text, text, int);
+drop function if exists admin_delete_move(uuid);
 
 create table if not exists scores (
   student_no text primary key references roster(student_no) on delete cascade on update cascade,
@@ -137,12 +132,8 @@ alter table measures enable row level security;
 alter table weaknesses enable row level security;
 alter table designs enable row level security;
 alter table activity_logs enable row level security;
-alter table moves enable row level security;
 alter table scores enable row level security;
 
-drop policy if exists "moves are readable" on moves;
-create policy "moves are readable" on moves for select using (true);
-grant select on moves to anon, authenticated;
 
 -- ── 내부 도우미 (RPC로 부를 수 없게 막음) ─────────────────────
 
@@ -737,52 +728,4 @@ end;
 $$;
 grant execute on function admin_delete_student(text) to anon, authenticated;
 
-create or replace function admin_upsert_move(p_id uuid, p_area text, p_name text, p_link_3d text, p_muscles text,
-  p_posture text, p_safety text, p_daily text, p_tools text, p_order_index int) returns uuid
-language plpgsql security definer set search_path = public as $$
-declare
-  v uuid;
-begin
-  perform assert_teacher();
-  if coalesce(trim(p_name), '') = '' then raise exception '동작명을 입력해주세요'; end if;
-  if p_id is null then
-    insert into moves (area, name, link_3d, muscles, posture, safety, daily, tools, order_index)
-    values (p_area, trim(p_name), nullif(trim(p_link_3d), ''), p_muscles, p_posture, p_safety, p_daily, p_tools, coalesce(p_order_index, 0))
-    returning id into v;
-  else
-    update moves set area = p_area, name = trim(p_name), link_3d = nullif(trim(p_link_3d), ''), muscles = p_muscles,
-      posture = p_posture, safety = p_safety, daily = p_daily, tools = p_tools, order_index = coalesce(p_order_index, 0)
-    where id = p_id returning id into v;
-  end if;
-  return v;
-end;
-$$;
-grant execute on function admin_upsert_move(uuid, text, text, text, text, text, text, text, text, int) to anon, authenticated;
 
-create or replace function admin_delete_move(p_id uuid) returns void
-language plpgsql security definer set search_path = public as $$
-begin
-  perform assert_teacher();
-  delete from moves where id = p_id;
-end;
-$$;
-grant execute on function admin_delete_move(uuid) to anon, authenticated;
-
--- ── 예시 동작 (비어 있을 때만) ─────────────────────────────
-
-insert into moves (area, name, muscles, posture, safety, daily, tools, order_index)
-select * from (values
-  ('push', '무릎 대고 푸시업', '대흉근, 삼두근, 전면 삼각근', '손은 어깨너비, 무릎~머리 일직선', '허리가 처지지 않게, 팔꿈치는 몸통 쪽 45°', '무거운 문 밀기, 바닥 짚고 일어나기', '매트', 1),
-  ('push', '덤벨 숄더 프레스', '삼각근, 삼두근', '덤벨을 귀 옆에서 머리 위로 곧게 밀기', '허리 젖히지 않기, 가벼운 무게부터', '물건을 선반 위로 올리기', '덤벨', 2),
-  ('pull', '덤벨 로우', '광배근, 능형근, 이두근', '상체 숙이고 등 평평, 팔꿈치를 뒤로 당기기', '등이 굽지 않게, 반동 쓰지 않기', '무거운 문 당기기, 가방 들어 올리기', '덤벨, 의자', 1),
-  ('pull', '수건 쥐어짜기', '전완근(악력)', '수건을 양손으로 비틀어 짜기', '손목 통증이 있으면 멈추기', '병뚜껑 따기, 장바구니 들기', '수건', 2),
-  ('core', '플랭크', '복직근, 복횡근, 척추기립근', '팔꿈치는 어깨 아래, 머리~발목 일직선', '엉덩이 들거나 처지지 않게, 숨 참지 않기', '오래 바른 자세로 앉기', '매트', 1),
-  ('core', '데드버그', '복횡근, 복직근', '누워서 반대쪽 팔·다리를 천천히 뻗기', '허리가 바닥에서 뜨지 않게', '물건 들 때 허리 보호', '매트', 2),
-  ('legEnd', '맨몸 스쿼트', '대퇴사두근, 둔근, 햄스트링', '발은 어깨너비, 엉덩이를 뒤로 빼며 앉기', '무릎이 안쪽으로 모이지 않게', '계단 오르기, 쪼그려 앉았다 일어나기', '없음', 1),
-  ('legEnd', '런지', '대퇴사두근, 둔근', '한 발 앞으로 내딛고 양 무릎 90°', '앞 무릎이 발끝보다 너무 나가지 않게', '오래 걷기, 계단 오르기', '없음', 2),
-  ('legPow', '점프 스쿼트', '대퇴사두근, 둔근, 종아리', '스쿼트 후 힘차게 위로 점프', '착지할 때 무릎을 살짝 굽혀 충격 흡수', '물웅덩이 뛰어넘기', '없음', 1),
-  ('legPow', '스케이터 점프', '둔근, 대퇴사두근, 종아리', '옆으로 한 발씩 뛰며 착지', '미끄럽지 않은 바닥에서', '갑자기 방향 바꿔 뛰기', '없음', 2),
-  ('cardio', '버피', '전신, 심폐', '스쿼트 → 엎드려 뻗기 → 일어나 점프', '처음엔 천천히, 어지러우면 쉬기', '버스 놓칠 때 달려가기', '매트', 1),
-  ('cardio', '하이니(제자리 뛰기)', '장요근, 대퇴사두근, 심폐', '제자리에서 무릎을 허리 높이로 번갈아 들기', '발 앞쪽으로 가볍게 착지', '오래 뛰어 노는 놀이', '없음', 2)
-) as t(area, name, muscles, posture, safety, daily, tools, order_index)
-where not exists (select 1 from moves);
