@@ -124,8 +124,9 @@ supabase/schema.sql        전체 스키마 + RPC (다시 실행해도 안전)
 - 배포된 DB 에 적용할 SQL: 이 변경분은 `save_weak`, `design_errors`, `admin_export_designs` 세 함수(schema.sql 전체 재실행해도 안전).
 
 ## 5-5. 학생 비밀번호 (2026-11-25 교사 요청)
-- 학번·이름만으로는 친구 계정에 들어갈 수 있어서, **첫 로그인 때 학생이 비밀번호(4~20자)를 만든다.** 다음부터는 학번·이름 → 비밀번호.
-- `roster.pin_hash` (pgcrypto bcrypt), `pin_fails`, `pin_locked_until`. 5번 틀리면 5분 잠김. 틀린 횟수를 저장해야 해서 `student_login` 은 raise 대신 `{status:'ok'|'setPin'|'pin'|'error', message}` 를 돌려준다.
+- 학번·이름만으로는 친구 계정에 들어갈 수 있어서, **첫 로그인 때 학생이 비밀번호(숫자 6자리)를 만든다.** 다음부터는 학번·이름 → 비밀번호.
+- `roster.pin_hash` (pgcrypto bcrypt). `student_login` 은 `{status:'ok'|'setPin'|'pin'|'error', message}` 를 돌려준다.
+- **틀려도 잠그지 않는다** (교사 결정 2026-11-26: 수업 중 잠김으로 학생이 막히는 것을 피함). `pin_fails`·`pin_locked_until` 컬럼은 남아 있지만 쓰지 않음. 대신 숫자 6자리라도 여러 번 시도하면 맞힐 수 있으니 학생에게 짧은 비밀번호를 피하도록 안내.
 - 이미 비밀번호가 있는 학생에게 `p_new_pin = true` 로 덮어쓰기 불가(그냥 'pin' 단계로 돌려보냄).
 - 교사: 학생 상세 → **비밀번호 초기화** (`admin_reset_pin`) — 비밀번호 지우고 그 학생 기기 로그아웃, 기록은 그대로. 진행 현황 표에 '비밀번호' 열(✓ = 만듦).
 - 한계: 첫 로그인 전에 다른 사람이 먼저 비밀번호를 만들어 버리면 막을 수 없다 → 진짜 학생이 "비밀번호가 맞지 않아요"를 보면 교사가 초기화.

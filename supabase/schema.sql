@@ -54,7 +54,8 @@ create table if not exists roster (
   created_at timestamptz not null default now()
 );
 alter table roster add column if not exists sex text;
--- 학생 비밀번호 (처음 로그인할 때 학생이 만든다. bcrypt 해시만 저장, 5번 틀리면 5분 잠김)
+-- 학생 비밀번호 (처음 로그인할 때 학생이 만든다. bcrypt 해시만 저장. 틀려도 잠그지 않음 — 교사 결정 2026-11-26)
+-- pin_fails·pin_locked_until 은 예전 잠금 기능의 흔적 (지금은 쓰지 않음)
 alter table roster add column if not exists pin_hash text;
 alter table roster add column if not exists pin_fails int not null default 0;
 alter table roster add column if not exists pin_locked_until timestamptz;
@@ -432,7 +433,7 @@ grant execute on function teacher_logout() to anon, authenticated;
 
 -- 처음 로그인: 학번·이름 → {status:'setPin'} → 비밀번호를 만들어 다시 부름(p_new_pin = true)
 -- 다음부터: 학번·이름 → {status:'pin'} → 비밀번호와 함께 다시 부름
--- 틀린 횟수를 저장해야 해서 오류는 raise 대신 {status:'error'} 로 돌려준다 (raise 하면 저장도 되돌아감)
+-- 비밀번호 오류는 raise 대신 {status:'error', step, message} 로 돌려준다
 drop function if exists student_login(text, text);
 create or replace function student_login(p_student_no text, p_name text, p_pin text default null, p_new_pin boolean default false)
 returns jsonb
@@ -440,7 +441,6 @@ language plpgsql security definer set search_path = public, extensions as $$
 declare
   r roster%rowtype;
   v_pin text := coalesce(p_pin, '');
-  v_left int;
 begin
   if auth.uid() is null then raise exception '로그인 세션이 없어요. 새로고침 후 다시 시도해주세요'; end if;
   select * into r from roster where student_no = regexp_replace(coalesce(p_student_no, ''), '\s', '', 'g') for update;
@@ -449,26 +449,15 @@ begin
   end if;
   if r.pin_hash is null then
     if v_pin = '' or not p_new_pin then return jsonb_build_object('status', 'setPin'); end if;
-    if length(v_pin) < 4 or length(v_pin) > 20 then
-      return jsonb_build_object('status', 'error', 'step', 'setPin', 'message', '비밀번호는 4~20자로 만들어주세요');
+    if v_pin !~ '^[0-9]{6}$' then
+      return jsonb_build_object('status', 'error', 'step', 'setPin', 'message', '비밀번호는 숫자 6자리로 만들어주세요');
     end if;
     update roster set pin_hash = crypt(v_pin, gen_salt('bf')), pin_fails = 0, pin_locked_until = null, auth_user_id = auth.uid()
     where student_no = r.student_no;
   else
     if v_pin = '' or p_new_pin then return jsonb_build_object('status', 'pin'); end if;
-    if r.pin_locked_until > now() then
-      return jsonb_build_object('status', 'error', 'step', 'pin', 'message',
-        '비밀번호를 5번 틀려서 잠겼어요. ' || greatest(1, ceil(extract(epoch from r.pin_locked_until - now()) / 60))::int
-        || '분 뒤에 다시 하거나 선생님께 비밀번호 초기화를 부탁하세요');
-    end if;
     if r.pin_hash <> crypt(v_pin, r.pin_hash) then
-      if r.pin_fails + 1 >= 5 then
-        update roster set pin_fails = 0, pin_locked_until = now() + interval '5 minutes' where student_no = r.student_no;
-        return jsonb_build_object('status', 'error', 'step', 'pin', 'message', '비밀번호를 5번 틀려서 5분 동안 잠겼어요. 잊었으면 선생님께 초기화를 부탁하세요');
-      end if;
-      update roster set pin_fails = r.pin_fails + 1 where student_no = r.student_no;
-      v_left := 5 - (r.pin_fails + 1);
-      return jsonb_build_object('status', 'error', 'step', 'pin', 'message', '비밀번호가 맞지 않아요 (남은 기회 ' || v_left || '번)');
+      return jsonb_build_object('status', 'error', 'step', 'pin', 'message', '비밀번호가 맞지 않아요. 잊었으면 선생님께 초기화를 부탁하세요');
     end if;
     update roster set pin_fails = 0, pin_locked_until = null, auth_user_id = auth.uid() where student_no = r.student_no;
   end if;
@@ -737,8 +726,7 @@ begin
   if not found then raise exception '명렬표에 없는 학번이에요'; end if;
   return jsonb_build_object(
     'student', jsonb_build_object('studentNo', r.student_no, 'name', r.name, 'className', r.class_name, 'number', r.number,
-                 'runText', r.run_text, 'runSec', r.run_sec, 'sex', r.sex, 'hasPin', r.pin_hash is not null,
-                 'pinLocked', coalesce(r.pin_locked_until > now(), false)),
+                 'runText', r.run_text, 'runSec', r.run_sec, 'sex', r.sex, 'hasPin', r.pin_hash is not null),
     'diag', (select jsonb_build_object('answers', answers, 'done', done, 'updatedAt', updated_at) from diagnoses where student_no = r.student_no),
     'measure', (select jsonb_build_object('vals', vals, 'done', done) from measures where student_no = r.student_no),
     'weak', (select jsonb_build_object('areas', areas, 'reason', reason, 'done', done, 'updatedAt', updated_at) from weaknesses where student_no = r.student_no),

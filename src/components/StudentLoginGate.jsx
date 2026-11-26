@@ -26,7 +26,7 @@ export default function StudentLoginGate({ onLoggedIn, onBack, initialMessage })
     setError('');
     if (!studentNo.trim() || !name.trim()) { setError('학번과 이름을 모두 입력해주세요.'); return; }
     if (step === 'setPin') {
-      if (pin.length < 4 || pin.length > 20) { setError('비밀번호는 4~20자로 만들어주세요.'); return; }
+      if (!/^[0-9]{6}$/.test(pin)) { setError('비밀번호는 숫자 6자리로 만들어주세요.'); return; }
       if (pin !== pin2) { setError('두 비밀번호가 달라요. 다시 입력해주세요.'); setPin2(''); return; }
     }
     if (step === 'pin' && !pin) { setError('비밀번호를 입력해주세요.'); return; }
@@ -79,16 +79,16 @@ export default function StudentLoginGate({ onLoggedIn, onBack, initialMessage })
             </div>
             {idLocked && (
               <div className="field">
-                <label htmlFor="spin">{step === 'setPin' ? '새 비밀번호 (4~20자)' : '비밀번호'}</label>
+                <label htmlFor="spin">{step === 'setPin' ? '새 비밀번호 (숫자 6자리)' : '비밀번호 (숫자 6자리)'}</label>
                 <input id="spin" type="password" autoComplete={step === 'setPin' ? 'new-password' : 'current-password'} autoFocus
-                  value={pin} onChange={(e) => setPin(e.target.value)} placeholder={step === 'setPin' ? '예: 숫자 4자리 이상' : ''} />
+                  inputMode="numeric" maxLength={6} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} placeholder="••••••" />
               </div>
             )}
             {step === 'setPin' && (
               <div className="field">
                 <label htmlFor="spin2">비밀번호 한 번 더</label>
-                <input id="spin2" type="password" autoComplete="new-password" value={pin2} onChange={(e) => setPin2(e.target.value)} />
-                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>친구에게 알려주지 마세요. 잊어버리면 선생님께 초기화를 부탁하면 돼요.</div>
+                <input id="spin2" type="password" autoComplete="new-password" inputMode="numeric" maxLength={6} value={pin2} onChange={(e) => setPin2(e.target.value.replace(/\D/g, ''))} placeholder="••••••" />
+                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>생일·123456처럼 쉬운 번호는 피하고, 친구에게 알려주지 마세요. 잊어버리면 선생님께 초기화를 부탁하면 돼요.</div>
               </div>
             )}
             {error && <div className="msg msg-error">{error}</div>}

@@ -91,7 +91,7 @@ function Detail({ d, onUnlock, onPreview, onResetPin }) {
         <h2>{clsLabel(d.student.className)} {d.student.number}번 {d.student.name} <span className="muted">{d.student.studentNo}{d.student.sex ? ` · ${d.student.sex}` : ''}</span></h2>
         <div className="row" style={{ marginBottom: 8 }}>
           <button className="btn btn-accent btn-sm" type="button" id="preview" onClick={onPreview}>학생 화면 미리보기</button>
-          <span className="muted">비밀번호: {d.student.hasPin ? (d.student.pinLocked ? <b className="n">5번 틀려 잠김</b> : '만듦') : '아직 없음 (첫 로그인 전)'}</span>
+          <span className="muted">비밀번호: {d.student.hasPin ? '만듦' : '아직 없음 (첫 로그인 전)'}</span>
           {d.student.hasPin && <button className="btn btn-outline btn-sm" type="button" id="resetPin" onClick={onResetPin}>비밀번호 초기화</button>}
         </div>
         <div className="row">설계도:
